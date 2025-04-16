@@ -1,4 +1,4 @@
-// src/App.tsx
+
 import React, { useState, useEffect } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -9,43 +9,35 @@ interface Step {
   "Expected Result": string;
 }
 
-const App = () => {
+function App() {
+  const [title, setTitle] = useState("");
+  const [formState, setFormState] = useState<Step>({
+    Action: "",
+    Data: "",
+    "Expected Result": "",
+  });
   const [steps, setSteps] = useState<Step[]>([]);
-  const [current, setCurrent] = useState<Step>({ Action: "", Data: "", "Expected Result": "" });
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [title, setTitle] = useState<string>("");
-  const [copyMessage, setCopyMessage] = useState<string>("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem("history") || "[]");
-    setSuggestions(saved);
-  }, []);
-
-  const updateHistory = (value: string) => {
-    const history = JSON.parse(localStorage.getItem("history") || "[]");
-    if (!history.includes(value)) {
-      const updated = [...history, value];
-      localStorage.setItem("history", JSON.stringify(updated));
-      setSuggestions(updated);
+    if (copied) {
+      const timeout = setTimeout(() => setCopied(false), 2000);
+      return () => clearTimeout(timeout);
     }
+  }, [copied]);
+
+  const handleChange = (field: keyof Step, value: string) => {
+    setFormState({ ...formState, [field]: value });
   };
 
-  const handleChange = (key: keyof Step, value: string) => {
-    setCurrent({ ...current, [key]: value });
+  const addStep = () => {
+    if (!formState.Action && !formState.Data && !formState["Expected Result"]) return;
+    setSteps([...steps, formState]);
+    setFormState({ Action: "", Data: "", "Expected Result": "" });
   };
 
-  const handleAddStep = () => {
-    if (current.Action.trim() === "") return;
-    setSteps([...steps, current]);
-    updateHistory(current.Action);
-    updateHistory(current.Data);
-    updateHistory(current["Expected Result"]);
-    setCurrent({ Action: "", Data: "", "Expected Result": "" });
-  };
-
-  const handleDeleteStep = (index: number) => {
-    const newSteps = steps.filter((_, i) => i !== index);
-    setSteps(newSteps);
+  const deleteStep = (index: number) => {
+    setSteps(steps.filter((_, i) => i !== index));
   };
 
   const moveStep = (index: number, direction: "up" | "down") => {
@@ -56,155 +48,108 @@ const App = () => {
     setSteps(newSteps);
   };
 
-  const getSuggestions = (input: string) => {
-    if (!input) return [];
-    return suggestions.filter((item) => item.toLowerCase().startsWith(input.toLowerCase()));
-  };
-
   const exportJSON = () => {
-    if (steps.length === 0) {
-      alert("There are no steps to export.");
-      return;
-    }
-    const filename = `${title || "steps"}.json`;
-    const json = JSON.stringify(steps, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
+    if (steps.length === 0) return alert("No steps to export.");
+    const blob = new Blob([JSON.stringify(steps, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
+    a.href = URL.createObjectURL(blob);
+    a.download = `${title || "steps"}.json`;
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(a.href);
   };
 
   const copyJSON = () => {
-    const json = JSON.stringify(steps, null, 2);
     try {
-      navigator.clipboard.writeText(json).then(() => {
-        setCopyMessage("✅ JSON copied!");
-        setTimeout(() => setCopyMessage(""), 2000);
-      }).catch(() => {
-        const textarea = document.createElement("textarea");
-        textarea.value = json;
-        textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textarea);
-        setCopyMessage("✅ JSON copied!");
-        setTimeout(() => setCopyMessage(""), 2000);
-      });
-    } catch (err) {
-      alert("Failed to copy JSON.");
+      const json = JSON.stringify(steps, null, 2);
+      navigator.clipboard.writeText(json);
+      setCopied(true);
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = JSON.stringify(steps, null, 2);
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopied(true);
     }
   };
 
-  const Input = (props: any) => (
-    <input {...props} className={`border-2 border-gray-400 rounded p-2 w-full ${props.className || ""}`} />
-  );
-
-  const Button = (props: any) => (
-    <button {...props} className={`rounded px-4 py-2 ${props.className || "bg-blue-600 text-white"}`} />
-  );
-
-  const Card = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-    <div className={`bg-white rounded shadow ${className}`}>{children}</div>
-  );
-
-  const CardContent = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-    <div className={`${className}`}>{children}</div>
-  );
-
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      <Card className="border-2 border-gray-300 shadow-md">
-        <CardContent className="space-y-4 p-4">
-          <h2 className="text-xl font-bold">Title</h2>
-          <Input placeholder="Enter a title for export..." value={title} onChange={(e: any) => setTitle(e.target.value)} />
-        </CardContent>
-      </Card>
+    <div style={{ fontFamily: "Arial", padding: "2rem", maxWidth: 800, margin: "0 auto" }}>
+      <h2>Title</h2>
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Enter a title for export..."
+        style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem" }}
+      />
 
-      <Card className="border-2 border-blue-300 shadow-md">
-        <CardContent className="space-y-4 p-4">
-          <h2 className="text-xl font-bold">Add a Step</h2>
+      <h2>Add a Step</h2>
+      <label>Action</label>
+      <input
+        value={formState.Action}
+        onChange={(e) => handleChange("Action", e.target.value)}
+        style={{ width: "100%", padding: "0.5rem", marginBottom: "0.5rem" }}
+      />
+      <label>Data</label>
+      <input
+        value={formState.Data}
+        onChange={(e) => handleChange("Data", e.target.value)}
+        style={{ width: "100%", padding: "0.5rem", marginBottom: "0.5rem" }}
+      />
+      <label>Expected Result</label>
+      <input
+        value={formState["Expected Result"]}
+        onChange={(e) => handleChange("Expected Result", e.target.value)}
+        style={{ width: "100%", padding: "0.5rem", marginBottom: "0.5rem" }}
+      />
+      <button onClick={addStep} style={{ padding: "0.5rem 1rem", marginBottom: "2rem" }}>Add Step</button>
 
-          <div className="space-y-1">
-            <label className="font-medium">Action</label>
-            <Input
-              value={current.Action}
-              onChange={(e: any) => handleChange("Action", e.target.value)}
-              list="action-suggestions"
-            />
-            <datalist id="action-suggestions">
-              {getSuggestions(current.Action).map((s, i) => (
-                <option key={i} value={s} />
-              ))}
-            </datalist>
-          </div>
+      <h2>Generated JSON</h2>
+      <div style={{ background: "#111", padding: "1rem", borderRadius: 4, color: "white" }}>
+        <SyntaxHighlighter language="json" style={oneDark} wrapLines>
+          {JSON.stringify(steps, null, 2)}
+        </SyntaxHighlighter>
+      </div>
 
-          <div className="space-y-1">
-            <label className="font-medium">Data</label>
-            <Input
-              value={current.Data}
-              onChange={(e: any) => handleChange("Data", e.target.value)}
-              list="data-suggestions"
-            />
-            <datalist id="data-suggestions">
-              {getSuggestions(current.Data).map((s, i) => (
-                <option key={i} value={s} />
-              ))}
-            </datalist>
-          </div>
+      <div style={{ marginTop: "1rem", display: "flex", gap: "1rem" }}>
+        <button onClick={exportJSON} style={{ backgroundColor: "green", color: "white", padding: "0.5rem 1rem" }}>
+          Export JSON
+        </button>
+        <button onClick={copyJSON} style={{ backgroundColor: "royalblue", color: "white", padding: "0.5rem 1rem" }}>
+          Copy JSON
+        </button>
+        {copied && <span style={{ color: "green" }}>✅ JSON copied!</span>}
+      </div>
 
-          <div className="space-y-1">
-            <label className="font-medium">Expected Result</label>
-            <Input
-              value={current["Expected Result"]}
-              onChange={(e: any) => handleChange("Expected Result", e.target.value)}
-              list="result-suggestions"
-            />
-            <datalist id="result-suggestions">
-              {getSuggestions(current["Expected Result"]).map((s, i) => (
-                <option key={i} value={s} />
-              ))}
-            </datalist>
-          </div>
-
-          <Button className="bg-blue-900 text-white hover:bg-blue-800" onClick={handleAddStep}>Add Step</Button>
-        </CardContent>
-      </Card>
-
-      <Card className="border-2 border-green-300 shadow-md">
-        <CardContent className="p-4 space-y-4">
-          <h2 className="text-xl font-bold">Generated JSON</h2>
-
-          <div className="rounded bg-black text-white text-sm overflow-auto p-3">
-            <SyntaxHighlighter
-              language="json"
-              style={oneDark}
-              customStyle={{ backgroundColor: "black", padding: "0.5rem", margin: 0, filter: "none", boxShadow: "none", textShadow: "none", borderRadius: "0.25rem" }}
-              wrapLines={false}
-              showLineNumbers={false}
-              PreTag="div"
-              CodeTag="div"
-            >
-              {JSON.stringify(steps, null, 2)}
-            </SyntaxHighlighter>
-          </div>
-
-          <div className="flex gap-2 items-center">
-            <Button className="bg-green-600 text-white hover:bg-green-500 font-semibold px-4 py-2 rounded" onClick={exportJSON}>Export JSON</Button>
-            <Button className="bg-blue-600 text-white hover:bg-blue-500 font-semibold px-4 py-2 rounded" onClick={copyJSON}>Copy JSON</Button>
-            {copyMessage && <span className="text-green-600 font-medium">{copyMessage}</span>}
-          </div>
-        </CardContent>
-      </Card>
+      {steps.map((step, i) => (
+        <div key={i} style={{ marginTop: "1rem", border: "1px solid #ccc", padding: "1rem", position: "relative" }}>
+          <button
+            onClick={() => deleteStep(i)}
+            style={{ position: "absolute", right: 10, top: 10, background: "crimson", color: "white", border: "none", padding: "0.2rem 0.5rem" }}
+          >
+            Delete
+          </button>
+          <button
+            onClick={() => moveStep(i, "up")}
+            style={{ position: "absolute", right: 60, top: 10 }}
+          >
+            ↑
+          </button>
+          <button
+            onClick={() => moveStep(i, "down")}
+            style={{ position: "absolute", right: 35, top: 10 }}
+          >
+            ↓
+          </button>
+          <SyntaxHighlighter language="json" style={oneDark}>
+            {JSON.stringify(step, null, 2)}
+          </SyntaxHighlighter>
+        </div>
+      ))}
     </div>
   );
-};
+}
 
 export default App;
