@@ -85,7 +85,7 @@ function App() {
         style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem" }}
       />
 
-      <h2>Add a Step</h2>
+      <h2>Add a Stepi</h2>
       <label>Action</label>
       <input
         value={formState.Action}
