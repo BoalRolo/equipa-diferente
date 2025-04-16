@@ -1,10 +1,16 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import "./index.css";
-import App from './App';
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Home from "./Home";
+import JsonGenerator from "./JsonGenerator";
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <BrowserRouter basename="/json-step-builder">
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/json-generator" element={<JsonGenerator />} />
+      </Routes>
+    </BrowserRouter>
+  </React.StrictMode>
 );

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -9,7 +8,7 @@ interface Step {
   "Expected Result": string;
 }
 
-function App() {
+function JsonGenerator() {
   const [title, setTitle] = useState("");
   const [formState, setFormState] = useState<Step>({
     Action: "",
@@ -31,7 +30,8 @@ function App() {
   };
 
   const addStep = () => {
-    if (!formState.Action && !formState.Data && !formState["Expected Result"]) return;
+    if (!formState.Action && !formState.Data && !formState["Expected Result"])
+      return;
     setSteps([...steps, formState]);
     setFormState({ Action: "", Data: "", "Expected Result": "" });
   };
@@ -44,13 +44,18 @@ function App() {
     const newSteps = [...steps];
     const targetIndex = direction === "up" ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= steps.length) return;
-    [newSteps[index], newSteps[targetIndex]] = [newSteps[targetIndex], newSteps[index]];
+    [newSteps[index], newSteps[targetIndex]] = [
+      newSteps[targetIndex],
+      newSteps[index],
+    ];
     setSteps(newSteps);
   };
 
   const exportJSON = () => {
     if (steps.length === 0) return alert("No steps to export.");
-    const blob = new Blob([JSON.stringify(steps, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(steps, null, 2)], {
+      type: "application/json",
+    });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `${title || "steps"}.json`;
@@ -75,7 +80,28 @@ function App() {
   };
 
   return (
-    <div style={{ fontFamily: "Arial", padding: "2rem", maxWidth: 800, margin: "0 auto" }}>
+    <div
+      style={{
+        fontFamily: "Arial",
+        padding: "2rem",
+        maxWidth: 800,
+        margin: "0 auto",
+      }}
+    >
+      <button
+        onClick={() => (window.location.href = "/json-step-builder/")}
+        style={{
+          background: "none",
+          border: "none",
+          color: "#1f6feb",
+          fontSize: "1rem",
+          cursor: "pointer",
+          marginBottom: "1rem",
+        }}
+      >
+        ← Back to Home
+      </button>
+
       <h2>Title</h2>
       <input
         type="text"
@@ -85,7 +111,7 @@ function App() {
         style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem" }}
       />
 
-      <h2>Add a Stepi</h2>
+      <h2>Add a Step</h2>
       <label>Action</label>
       <input
         value={formState.Action}
@@ -104,45 +130,112 @@ function App() {
         onChange={(e) => handleChange("Expected Result", e.target.value)}
         style={{ width: "100%", padding: "0.5rem", marginBottom: "0.5rem" }}
       />
-      <button onClick={addStep} style={{ padding: "0.5rem 1rem", marginBottom: "2rem" }}>Add Step</button>
+      <button
+        onClick={addStep}
+        style={{ padding: "0.5rem 1rem", marginBottom: "2rem" }}
+      >
+        Add Step
+      </button>
 
       <h2>Generated JSON</h2>
-      <div style={{ background: "#111", padding: "1rem", borderRadius: 4, color: "white" }}>
+      <div
+        style={{
+          background: "#111",
+          padding: "1rem",
+          borderRadius: 4,
+          color: "white",
+        }}
+      >
         <SyntaxHighlighter language="json" style={oneDark} wrapLines>
           {JSON.stringify(steps, null, 2)}
         </SyntaxHighlighter>
       </div>
 
       <div style={{ marginTop: "1rem", display: "flex", gap: "1rem" }}>
-        <button onClick={exportJSON} style={{ backgroundColor: "green", color: "white", padding: "0.5rem 1rem" }}>
+        <button
+          onClick={exportJSON}
+          style={{
+            backgroundColor: "green",
+            color: "white",
+            padding: "0.5rem 1rem",
+          }}
+        >
           Export JSON
         </button>
-        <button onClick={copyJSON} style={{ backgroundColor: "royalblue", color: "white", padding: "0.5rem 1rem" }}>
+        <button
+          onClick={copyJSON}
+          style={{
+            backgroundColor: "royalblue",
+            color: "white",
+            padding: "0.5rem 1rem",
+          }}
+        >
           Copy JSON
         </button>
         {copied && <span style={{ color: "green" }}>✅ JSON copied!</span>}
       </div>
 
       {steps.map((step, i) => (
-        <div key={i} style={{ marginTop: "1rem", border: "1px solid #ccc", padding: "1rem", position: "relative" }}>
-          <button
-            onClick={() => deleteStep(i)}
-            style={{ position: "absolute", right: 10, top: 10, background: "crimson", color: "white", border: "none", padding: "0.2rem 0.5rem" }}
+        <div
+          key={i}
+          style={{
+            marginTop: "1rem",
+            border: "1px solid #ccc",
+            padding: "1rem",
+            position: "relative",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              display: "flex",
+              gap: "0.3rem",
+            }}
           >
-            Delete
-          </button>
-          <button
-            onClick={() => moveStep(i, "up")}
-            style={{ position: "absolute", right: 60, top: 10 }}
-          >
-            ↑
-          </button>
-          <button
-            onClick={() => moveStep(i, "down")}
-            style={{ position: "absolute", right: 35, top: 10 }}
-          >
-            ↓
-          </button>
+            <button
+              onClick={() => moveStep(i, "up")}
+              title="Move Up"
+              style={{
+                background: "white",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                padding: "0.2rem 0.5rem",
+                cursor: "pointer",
+              }}
+            >
+              ↑
+            </button>
+            <button
+              onClick={() => moveStep(i, "down")}
+              title="Move Down"
+              style={{
+                background: "white",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                padding: "0.2rem 0.5rem",
+                cursor: "pointer",
+              }}
+            >
+              ↓
+            </button>
+            <button
+              onClick={() => deleteStep(i)}
+              title="Delete"
+              style={{
+                background: "white",
+                color: "white",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                padding: "0.2rem 0.5rem",
+                cursor: "pointer",
+              }}
+            >
+              ❌
+            </button>
+          </div>
+
           <SyntaxHighlighter language="json" style={oneDark}>
             {JSON.stringify(step, null, 2)}
           </SyntaxHighlighter>
@@ -152,4 +245,4 @@ function App() {
   );
 }
 
-export default App;
+export default JsonGenerator;
