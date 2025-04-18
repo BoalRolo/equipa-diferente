@@ -18,6 +18,7 @@ function JsonGenerator() {
   });
   const [steps, setSteps] = useState<Step[]>([]);
   const [copied, setCopied] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (copied) {
@@ -33,11 +34,39 @@ function JsonGenerator() {
   const addStep = () => {
     if (!formState.Action && !formState.Data && !formState["Expected Result"])
       return;
-    setSteps([...steps, formState]);
+
+    if (editingIndex !== null) {
+      // Update existing step
+      const newSteps = [...steps];
+      newSteps[editingIndex] = formState;
+      setSteps(newSteps);
+      setEditingIndex(null);
+    } else {
+      // Add new step
+      setSteps([...steps, formState]);
+    }
+
     setFormState({ Action: "", Data: "", "Expected Result": "" });
   };
 
+  const startEditing = (index: number) => {
+    setFormState(steps[index]);
+    setEditingIndex(index);
+    // Scroll to the form
+    document
+      .querySelector(".bg-gray-50.p-6")
+      ?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const cancelEditing = () => {
+    setFormState({ Action: "", Data: "", "Expected Result": "" });
+    setEditingIndex(null);
+  };
+
   const deleteStep = (index: number) => {
+    if (editingIndex === index) {
+      cancelEditing();
+    }
     setSteps(steps.filter((_, i) => i !== index));
   };
 
@@ -49,6 +78,11 @@ function JsonGenerator() {
       newSteps[targetIndex],
       newSteps[index],
     ];
+    if (editingIndex === index) {
+      setEditingIndex(targetIndex);
+    } else if (editingIndex === targetIndex) {
+      setEditingIndex(index);
+    }
     setSteps(newSteps);
   };
 
@@ -123,10 +157,10 @@ function JsonGenerator() {
               />
             </div>
 
-            {/* Add Step Form */}
+            {/* Add/Edit Step Form */}
             <div className="bg-gray-50 p-6 rounded-lg space-y-4">
               <h2 className="text-lg font-semibold text-gray-900">
-                Add a Step
+                {editingIndex !== null ? "Edit Step" : "Add a Step"}
               </h2>
               <div className="space-y-4">
                 {Object.keys(formState).map((field) => (
@@ -144,12 +178,22 @@ function JsonGenerator() {
                     />
                   </div>
                 ))}
-                <button
-                  onClick={addStep}
-                  className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-                >
-                  Add Step
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={addStep}
+                    className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                  >
+                    {editingIndex !== null ? "Save Changes" : "Add Step"}
+                  </button>
+                  {editingIndex !== null && (
+                    <button
+                      onClick={cancelEditing}
+                      className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -161,7 +205,9 @@ function JsonGenerator() {
                   {steps.map((step, i) => (
                     <div
                       key={i}
-                      className="bg-gray-50 rounded-lg p-4 relative group"
+                      className={`bg-gray-50 rounded-lg p-4 relative group ${
+                        editingIndex === i ? "ring-2 ring-blue-500" : ""
+                      }`}
                     >
                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
                         <button
@@ -179,6 +225,13 @@ function JsonGenerator() {
                           title="Move Down"
                         >
                           ↓
+                        </button>
+                        <button
+                          onClick={() => startEditing(i)}
+                          className="p-1 hover:bg-blue-100 text-blue-600 rounded"
+                          title="Edit"
+                        >
+                          ✎
                         </button>
                         <button
                           onClick={() => deleteStep(i)}
