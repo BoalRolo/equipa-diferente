@@ -1,1 +1,1 @@
-{"root":["./src/home.tsx","./src/jsongenerator.tsx","./src/custom.d.ts","./src/main.tsx","./src/vite-env.d.ts"],"version":"5.7.3"}
+{"root":["./src/codigodepreciado.tsx","./src/home.tsx","./src/jsongenerator.tsx","./src/nifgenerator.tsx","./src/custom.d.ts","./src/main.tsx","./src/vite-env.d.ts"],"version":"5.7.3"}

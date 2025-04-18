@@ -1,32 +1,31 @@
+/** @type {import('tailwindcss').Config} */
 export default {
     content: [
-      "./index.html",
-      "./src/**/*.{js,ts,jsx,tsx}"
-    ],
-    safelist: [
-      "bg-white",
-      "bg-black",
-      "bg-blue-900",
-      "bg-blue-800",
-      "bg-blue-600",
-      "bg-blue-500",
-      "bg-green-600",
-      "bg-green-500",
-      "text-white",
-      "text-green-600",
-      "text-green-300",
-      "border-2",
-      "border-gray-400",
-      "border-gray-300",
-      "border-blue-300",
-      "border-green-300",
-      "hover:bg-blue-800",
-      "hover:bg-blue-500",
-      "hover:bg-green-500"
+        "./index.html",
+        "./src/**/*.{js,ts,jsx,tsx}",
     ],
     theme: {
-      extend: {},
+        extend: {
+            keyframes: {
+                'fade-in': {
+                    '0%': { opacity: '0', transform: 'translateY(-10px)' },
+                    '100%': { opacity: '1', transform: 'translateY(0)' },
+                },
+                'fade-in-up': {
+                    '0%': { opacity: '0', transform: 'translateY(20px)' },
+                    '100%': { opacity: '1', transform: 'translateY(0)' },
+                },
+                'float': {
+                    '0%, 100%': { transform: 'translateY(0)' },
+                    '50%': { transform: 'translateY(-10px)' },
+                }
+            },
+            animation: {
+                'fade-in': 'fade-in 0.5s ease-out forwards',
+                'fade-in-up': 'fade-in-up 0.5s ease-out forwards',
+                'float': 'float 3s ease-in-out infinite',
+            },
+        },
     },
     plugins: [],
-  }
-  
+} 

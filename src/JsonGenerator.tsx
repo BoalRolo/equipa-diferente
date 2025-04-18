@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { Link } from "react-router-dom";
 
 interface Step {
   Action: string;
@@ -80,167 +81,178 @@ function JsonGenerator() {
   };
 
   return (
-    <div
-      style={{
-        fontFamily: "Arial",
-        padding: "2rem",
-        maxWidth: 800,
-        margin: "0 auto",
-      }}
-    >
-      <button
-        onClick={() => (window.location.href = "/json-step-builder/")}
-        style={{
-          background: "none",
-          border: "none",
-          color: "#1f6feb",
-          fontSize: "1rem",
-          cursor: "pointer",
-          marginBottom: "1rem",
-        }}
-      >
-        ← Back to Home
-      </button>
-
-      <h2>Title</h2>
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Enter a title for export..."
-        style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem" }}
-      />
-
-      <h2>Add a Step</h2>
-      <label>Action</label>
-      <input
-        value={formState.Action}
-        onChange={(e) => handleChange("Action", e.target.value)}
-        style={{ width: "100%", padding: "0.5rem", marginBottom: "0.5rem" }}
-      />
-      <label>Data</label>
-      <input
-        value={formState.Data}
-        onChange={(e) => handleChange("Data", e.target.value)}
-        style={{ width: "100%", padding: "0.5rem", marginBottom: "0.5rem" }}
-      />
-      <label>Expected Result</label>
-      <input
-        value={formState["Expected Result"]}
-        onChange={(e) => handleChange("Expected Result", e.target.value)}
-        style={{ width: "100%", padding: "0.5rem", marginBottom: "0.5rem" }}
-      />
-      <button
-        onClick={addStep}
-        style={{ padding: "0.5rem 1rem", marginBottom: "2rem" }}
-      >
-        Add Step
-      </button>
-
-      <h2>Generated JSON</h2>
-      <div
-        style={{
-          background: "#111",
-          padding: "1rem",
-          borderRadius: 4,
-          color: "white",
-        }}
-      >
-        <SyntaxHighlighter language="json" style={oneDark} wrapLines>
-          {JSON.stringify(steps, null, 2)}
-        </SyntaxHighlighter>
-      </div>
-
-      <div style={{ marginTop: "1rem", display: "flex", gap: "1rem" }}>
-        <button
-          onClick={exportJSON}
-          style={{
-            backgroundColor: "green",
-            color: "white",
-            padding: "0.5rem 1rem",
-          }}
+    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
+        <Link
+          to="/"
+          className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-8 transition-colors"
         >
-          Export JSON
-        </button>
-        <button
-          onClick={copyJSON}
-          style={{
-            backgroundColor: "royalblue",
-            color: "white",
-            padding: "0.5rem 1rem",
-          }}
-        >
-          Copy JSON
-        </button>
-        {copied && <span style={{ color: "green" }}>✅ JSON copied!</span>}
-      </div>
-
-      {steps.map((step, i) => (
-        <div
-          key={i}
-          style={{
-            marginTop: "1rem",
-            border: "1px solid #ccc",
-            padding: "1rem",
-            position: "relative",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              top: 10,
-              right: 10,
-              display: "flex",
-              gap: "0.3rem",
-            }}
+          <svg
+            className="w-5 h-5 mr-2"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <button
-              onClick={() => moveStep(i, "up")}
-              title="Move Up"
-              style={{
-                background: "white",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                padding: "0.2rem 0.5rem",
-                cursor: "pointer",
-              }}
-            >
-              ↑
-            </button>
-            <button
-              onClick={() => moveStep(i, "down")}
-              title="Move Down"
-              style={{
-                background: "white",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                padding: "0.2rem 0.5rem",
-                cursor: "pointer",
-              }}
-            >
-              ↓
-            </button>
-            <button
-              onClick={() => deleteStep(i)}
-              title="Delete"
-              style={{
-                background: "white",
-                color: "white",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                padding: "0.2rem 0.5rem",
-                cursor: "pointer",
-              }}
-            >
-              ❌
-            </button>
-          </div>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+            />
+          </svg>
+          Back to Home
+        </Link>
 
-          <SyntaxHighlighter language="json" style={oneDark}>
-            {JSON.stringify(step, null, 2)}
-          </SyntaxHighlighter>
+        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+          <div className="p-6 space-y-6">
+            {/* Title Section */}
+            <div>
+              <label
+                htmlFor="title"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Title
+              </label>
+              <input
+                id="title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Enter a title for export..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Add Step Form */}
+            <div className="bg-gray-50 p-6 rounded-lg space-y-4">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Add a Step
+              </h2>
+              <div className="space-y-4">
+                {Object.keys(formState).map((field) => (
+                  <div key={field}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {field}
+                    </label>
+                    <input
+                      value={formState[field as keyof Step]}
+                      onChange={(e) =>
+                        handleChange(field as keyof Step, e.target.value)
+                      }
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      placeholder={`Enter ${field.toLowerCase()}...`}
+                    />
+                  </div>
+                ))}
+                <button
+                  onClick={addStep}
+                  className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                >
+                  Add Step
+                </button>
+              </div>
+            </div>
+
+            {/* Steps List */}
+            {steps.length > 0 && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold text-gray-900">Steps</h2>
+                <div className="space-y-3">
+                  {steps.map((step, i) => (
+                    <div
+                      key={i}
+                      className="bg-gray-50 rounded-lg p-4 relative group"
+                    >
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
+                        <button
+                          onClick={() => moveStep(i, "up")}
+                          disabled={i === 0}
+                          className="p-1 hover:bg-gray-200 rounded disabled:opacity-50"
+                          title="Move Up"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={() => moveStep(i, "down")}
+                          disabled={i === steps.length - 1}
+                          className="p-1 hover:bg-gray-200 rounded disabled:opacity-50"
+                          title="Move Down"
+                        >
+                          ↓
+                        </button>
+                        <button
+                          onClick={() => deleteStep(i)}
+                          className="p-1 hover:bg-red-100 text-red-600 rounded"
+                          title="Delete"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div className="pr-24">
+                        <SyntaxHighlighter
+                          language="json"
+                          style={oneDark}
+                          className="rounded-md"
+                        >
+                          {JSON.stringify(step, null, 2)}
+                        </SyntaxHighlighter>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Generated JSON */}
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Generated JSON
+              </h2>
+              <div className="bg-gray-900 rounded-lg overflow-hidden">
+                <SyntaxHighlighter
+                  language="json"
+                  style={oneDark}
+                  className="!m-0"
+                >
+                  {JSON.stringify(steps, null, 2)}
+                </SyntaxHighlighter>
+              </div>
+              <div className="flex space-x-4 items-center">
+                <button
+                  onClick={exportJSON}
+                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
+                >
+                  Export JSON
+                </button>
+                <button
+                  onClick={copyJSON}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                >
+                  Copy JSON
+                </button>
+                {copied && (
+                  <span className="text-green-600 flex items-center">
+                    <svg
+                      className="w-5 h-5 mr-1"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    Copied!
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-      ))}
+      </div>
     </div>
   );
 }
