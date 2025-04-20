@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { authenticateUser } from "./utils/mockUsers";
+import { authenticateUser } from "../utils/mockUsers";
 
 export default function Login() {
   const [userId, setUserId] = useState("");

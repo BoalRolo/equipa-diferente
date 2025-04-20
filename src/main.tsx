@@ -6,7 +6,7 @@ import Home from "./pages/Home";
 import JsonGenerator from "./pages/JsonGenerator";
 import NifGenerator from "./pages/NifGenerator";
 import DepreciatedCode from "./pages/DepreciatedCode";
-import Login from "./Login";
+import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import FunctionNumber from "./pages/FunctionNumber";
 

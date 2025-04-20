@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Combobox } from "@headlessui/react";
 import SyntaxHighlighter from "react-syntax-highlighter/dist/esm/prism-async-light";
-import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { tomorrow, okaidia } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Link } from "react-router-dom";
 import { fetchSuggestions, addSuggestion } from "../services/firebase";
 
@@ -32,7 +32,7 @@ export default function JsonGenerator() {
     "Expected Result": [],
   });
 
-  // limpa a notificação de cópia
+  // limpa notificação de cópia
   useEffect(() => {
     if (copied) {
       const t = setTimeout(() => setCopied(false), 2000);
@@ -40,28 +40,24 @@ export default function JsonGenerator() {
     }
   }, [copied]);
 
-  // pré‑carrega todas as sugestões (prefixo vazio) ao montar
+  // pré-carrega todas as sugestões (busca com prefixo vazio)
   useEffect(() => {
     (async () => {
-      for (const field of [
-        "Action",
-        "Data",
-        "Expected Result",
-      ] as (keyof Step)[]) {
+      for (const field of ["Action", "Data", "Expected Result"] as (keyof Step)[]) {
         const arr = await fetchSuggestions(field, "");
         setSuggestions((s) => ({ ...s, [field]: arr }));
       }
     })();
   }, []);
 
-  // busca sugestões conforme digita
+  // ao digitar, atualiza formState e busca sugestões
   async function handleChange(field: keyof Step, value: string) {
     setFormState((fs) => ({ ...fs, [field]: value }));
     const arr = await fetchSuggestions(field, value);
     setSuggestions((s) => ({ ...s, [field]: arr }));
   }
 
-  // adiciona ou salva edição de um passo
+  // adiciona ou salva edição
   const addStep = async () => {
     if (!formState.Action && !formState.Data && !formState["Expected Result"]) {
       return;
@@ -76,7 +72,7 @@ export default function JsonGenerator() {
       setSteps([...steps, formState]);
     }
 
-    // só persiste novas sugestões que ainda não existem
+    // persiste só o que ainda não existe
     if (formState.Action && !suggestions.Action.includes(formState.Action)) {
       await addSuggestion("Action", formState.Action);
     }
@@ -96,18 +92,19 @@ export default function JsonGenerator() {
   const startEditing = (i: number) => {
     setFormState(steps[i]);
     setEditingIndex(i);
-    document
-      .querySelector(".bg-gray-50.p-6")
-      ?.scrollIntoView({ behavior: "smooth" });
+    document.querySelector(".bg-gray-50.p-6")?.scrollIntoView({ behavior: "smooth" });
   };
+
   const cancelEditing = () => {
     setFormState({ Action: "", Data: "", "Expected Result": "" });
     setEditingIndex(null);
   };
+
   const deleteStep = (i: number) => {
     if (editingIndex === i) cancelEditing();
     setSteps((ss) => ss.filter((_, idx) => idx !== i));
   };
+
   const moveStep = (i: number, dir: "up" | "down") => {
     const ns = [...steps];
     const ti = dir === "up" ? i - 1 : i + 1;
@@ -129,6 +126,7 @@ export default function JsonGenerator() {
     a.click();
     URL.revokeObjectURL(a.href);
   };
+
   const copyJSON = () => {
     try {
       navigator.clipboard.writeText(JSON.stringify(steps, null, 2));
@@ -144,7 +142,7 @@ export default function JsonGenerator() {
     }
   };
 
-  // Combobox genérico para cada campo
+  // Combobox genérico
   const renderCombobox = (field: keyof Step) => (
     <Combobox
       as="div"
@@ -181,21 +179,16 @@ export default function JsonGenerator() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        <Link
-          to="/"
-          className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-8"
-        >
+        <Link to="/" className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-8">
           ← Back to Home
         </Link>
 
-        {/* precise usar overflow-visible para não cortar o dropdown */}
         <div className="bg-white shadow-lg rounded-lg overflow-visible">
           <div className="p-6 space-y-6">
+
             {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Title
-              </label>
+              <label className="block text-sm font-medium text-gray-700">Title</label>
               <input
                 type="text"
                 value={title}
@@ -212,16 +205,14 @@ export default function JsonGenerator() {
               </h2>
 
               <div className="space-y-4">
-                {(["Action", "Data", "Expected Result"] as (keyof Step)[]).map(
-                  (field) => (
-                    <div key={field}>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {field}
-                      </label>
-                      {renderCombobox(field)}
-                    </div>
-                  )
-                )}
+                {( ["Action", "Data", "Expected Result"] as (keyof Step)[] ).map(field => (
+                  <div key={field}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {field}
+                    </label>
+                    {renderCombobox(field)}
+                  </div>
+                ))}
               </div>
 
               <div className="flex gap-3">
@@ -245,7 +236,9 @@ export default function JsonGenerator() {
             {/* Steps List */}
             {steps.length > 0 && (
               <div className="space-y-4">
-                <h2 className="text-lg font-semibold text-gray-900">Steps</h2>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Steps ({steps.length})
+                </h2>
                 <div className="space-y-3">
                   {steps.map((step, i) => (
                     <div
@@ -304,8 +297,8 @@ export default function JsonGenerator() {
               </h2>
               <SyntaxHighlighter
                 language="json"
-                style={tomorrow}
-                className="bg-gray-900 rounded-lg p-4"
+                style={okaidia}
+                className="rounded-lg p-4"
               >
                 {JSON.stringify(steps, null, 2)}
               </SyntaxHighlighter>
@@ -323,12 +316,11 @@ export default function JsonGenerator() {
                   Copy JSON
                 </button>
                 {copied && (
-                  <span className="text-green-600 flex items-center">
-                    ✓ Copied!
-                  </span>
+                  <span className="text-green-600 flex items-center">✓ Copied!</span>
                 )}
               </div>
             </div>
+
           </div>
         </div>
       </div>
