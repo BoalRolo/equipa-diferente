@@ -21,7 +21,7 @@ const tools: Tool[] = [
   },
   {
     name: "Gerador de Código Depreciado",
-    description: "Gerador de código obsoleto",
+    description: "Obter codigo depreciado",
     path: "/codigo-depreciado",
   },
   {
@@ -62,9 +62,19 @@ export default function Home() {
       <header className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-blue-600">
-              Equipa Diferente
-            </h1>
+            <div className="flex items-center gap-8">
+              <h1 className="text-3xl font-bold text-blue-600 flex items-center">
+                <img
+                  src="octo.svg"
+                  alt="Octopus Logo"
+                  className="w-8 h-8 mr-2"
+                />
+                Equipa Diferente
+              </h1>
+              <span className="text-sm text-gray-600">
+                Welcome, {user?.name || "User"}
+              </span>
+            </div>
             <div className="flex items-center gap-4">
               <div className="relative">
                 <button
@@ -111,30 +121,25 @@ export default function Home() {
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-600">
-                  Welcome, {user?.name || "User"}
-                </span>
-                <button
-                  onClick={handleLogout}
-                  className="inline-flex items-center gap-2 bg-red-600 text-white rounded-lg px-4 py-2 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-2 bg-red-600 text-white rounded-lg px-4 py-2 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                    />
-                  </svg>
-                  Sair
-                </button>
-              </div>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                  />
+                </svg>
+                Sair
+              </button>
             </div>
           </div>
         </div>

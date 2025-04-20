@@ -1,1 +1,1 @@
-{"root":["./src/authcontext.tsx","./src/codigodepreciado.tsx","./src/home.tsx","./src/jsongenerator.tsx","./src/login.tsx","./src/nifgenerator.tsx","./src/custom.d.ts","./src/main.tsx","./src/vite-env.d.ts"],"version":"5.7.3"}
+{"root":["./src/codigodepreciado.tsx","./src/home.tsx","./src/jsongenerator.tsx","./src/login.tsx","./src/nifgenerator.tsx","./src/protectedroute.tsx","./src/custom.d.ts","./src/main.tsx","./src/mockusers.ts","./src/vite-env.d.ts"],"version":"5.7.3"}
