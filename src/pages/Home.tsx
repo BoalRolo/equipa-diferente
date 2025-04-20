@@ -29,6 +29,11 @@ const tools: Tool[] = [
     description: "Gerador de número de identificação fiscal",
     path: "/nif-generator",
   },
+  {
+    name: "Número da Função",
+    description: "Baseado no nome obter número da função",
+    path: "/function-number",
+  },
 ];
 
 export default function Home() {

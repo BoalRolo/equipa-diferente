@@ -5,9 +5,10 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import JsonGenerator from "./pages/JsonGenerator";
 import NifGenerator from "./pages/NifGenerator";
-import CodigoDepreciado from "./pages/CodigoDepreciado";
+import DepreciatedCode from "./pages/DepreciatedCode";
 import Login from "./Login";
 import ProtectedRoute from "./components/ProtectedRoute";
+import FunctionNumber from "./pages/FunctionNumber";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -34,7 +35,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           path="/codigo-depreciado"
           element={
             <ProtectedRoute>
-              <CodigoDepreciado />
+              <DepreciatedCode />
             </ProtectedRoute>
           }
         />
@@ -43,6 +44,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           element={
             <ProtectedRoute>
               <NifGenerator />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/function-number"
+          element={
+            <ProtectedRoute>
+              <FunctionNumber />
             </ProtectedRoute>
           }
         />

@@ -15,7 +15,7 @@ const initialState: FormState = {
   validadeDias: "",
 };
 
-const CodigoDepreciado = () => {
+const DepreciatedCode = () => {
   const [formState, setFormState] = useState<FormState>(initialState);
   const [codigo, setCodigo] = useState("");
   const [copied, setCopied] = useState(false);
@@ -227,4 +227,4 @@ const CodigoDepreciado = () => {
   );
 };
 
-export default CodigoDepreciado;
+export default DepreciatedCode;
