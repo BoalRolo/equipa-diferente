@@ -1,13 +1,13 @@
 import React from "react";
-import "./index.css";
+import "./styles/index.css";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Home from "./Home";
-import JsonGenerator from "./JsonGenerator";
-import NifGenerator from "./NifGenerator";
-import CodigoDepreciado from "./CodigoDepreciado";
+import Home from "./pages/Home";
+import JsonGenerator from "./pages/JsonGenerator";
+import NifGenerator from "./pages/NifGenerator";
+import CodigoDepreciado from "./pages/CodigoDepreciado";
 import Login from "./Login";
-import ProtectedRoute from "./ProtectedRoute";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

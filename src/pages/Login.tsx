@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { authenticateUser } from "./utils/mockUsers";
+import { authenticateUser } from "./mockUsers";
 
-export default function Login() {
-  const [userId, setUserId] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+const Login = () => {
   const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    userId: "",
+    password: "",
+  });
+  const [error, setError] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -16,29 +18,29 @@ export default function Login() {
         (name === "userId" && value.length <= 4) ||
         (name === "password" && value.length <= 6)
       ) {
-        if (name === "userId") {
-          setUserId(value);
-        } else {
-          setPassword(value);
-        }
+        setFormData((prev) => ({
+          ...prev,
+          [name]: value,
+        }));
       }
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
 
-    if (userId.length !== 4) {
+    if (formData.userId.length !== 4) {
       setError("O ID do usuário deve ter 4 dígitos");
       return;
     }
 
-    if (password.length !== 6) {
+    if (formData.password.length !== 6) {
       setError("A senha deve ter 6 dígitos");
       return;
     }
 
-    const user = authenticateUser(userId, password);
+    const user = authenticateUser(formData.userId, formData.password);
     if (user) {
       localStorage.setItem("isAuthenticated", "true");
       localStorage.setItem("user", JSON.stringify(user));
@@ -99,10 +101,10 @@ export default function Login() {
                   pattern="\d*"
                   maxLength={4}
                   required
-                  className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all duration-200"
-                  placeholder="4 dígitos"
-                  value={userId}
+                  value={formData.userId}
                   onChange={handleChange}
+                  placeholder="4 dígitos"
+                  className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all duration-200"
                 />
               </div>
             </div>
@@ -137,10 +139,10 @@ export default function Login() {
                   pattern="\d*"
                   maxLength={6}
                   required
-                  className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all duration-200"
-                  placeholder="6 dígitos"
-                  value={password}
+                  value={formData.password}
                   onChange={handleChange}
+                  placeholder="6 dígitos"
+                  className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all duration-200"
                 />
               </div>
             </div>
@@ -182,4 +184,6 @@ export default function Login() {
       </div>
     </div>
   );
-}
+};
+
+export default Login;
