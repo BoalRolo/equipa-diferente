@@ -65,7 +65,7 @@ export default function Home() {
             <div className="flex items-center gap-8">
               <h1 className="text-3xl font-bold text-blue-600 flex items-center">
                 <img
-                  src="octo.svg"
+                  src="/equipa-diferente/octo.svg"
                   alt="Octopus Logo"
                   className="w-8 h-8 mr-2"
                 />
@@ -79,9 +79,9 @@ export default function Home() {
               <div className="relative">
                 <button
                   onClick={() => setIsOpen(!isOpen)}
-                  className="inline-flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="inline-flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 w-72"
                 >
-                  <span>
+                  <span className="flex-1 text-left">
                     {selectedTool?.name || "Selecione uma ferramenta"}
                   </span>
                   <svg

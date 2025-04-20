@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import path from "path-browserify";
 
 export default defineConfig({
-  base: "/json-step-builder/",
+  base: "/equipa-diferente/",
   plugins: [react()],
   resolve: {
     alias: {

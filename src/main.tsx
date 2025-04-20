@@ -11,7 +11,7 @@ import ProtectedRoute from "./ProtectedRoute";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <BrowserRouter basename="/json-step-builder">
+    <BrowserRouter basename="/equipa-diferente">
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
