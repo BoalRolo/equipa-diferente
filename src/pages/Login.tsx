@@ -1,12 +1,15 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authenticateUser } from "../utils/mockUsers";
+import { useDarkMode } from "../contexts/DarkModeContext";
+import { getUserSettings, updateUserSettings } from "../services/firebase";
 
 export default function Login() {
   const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { isDarkMode, initializeWithUserSettings } = useDarkMode();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -25,7 +28,7 @@ export default function Login() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (userId.length !== 4) {
@@ -40,8 +43,21 @@ export default function Login() {
 
     const user = authenticateUser(userId, password);
     if (user) {
+      // Initialize user settings in Firebase if they don't exist
+      const settings = await getUserSettings(userId);
+      if (settings === null) {
+        // If no settings exist, create them with the default dark mode from the mock user
+        await updateUserSettings(userId, { darkMode: !!user.darkMode });
+      }
+
+      // Store user info and authentication state in localStorage
+      localStorage.setItem("user", JSON.stringify({ ...user, userId }));
       localStorage.setItem("isAuthenticated", "true");
-      localStorage.setItem("user", JSON.stringify(user));
+
+      // Initialize dark mode with user settings
+      await initializeWithUserSettings(userId);
+
+      // Navigate to home page
       navigate("/");
     } else {
       setError("ID do usuário ou senha inválidos");
@@ -49,7 +65,13 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div
+      className={`min-h-screen transition-colors duration-200 ${
+        isDarkMode
+          ? "bg-gray-900"
+          : "bg-gradient-to-br from-blue-50 to-gray-100"
+      } flex flex-col justify-center py-12 sm:px-6 lg:px-8`}
+    >
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <img
@@ -58,28 +80,46 @@ export default function Login() {
             className="w-20 h-20 animate-bounce"
           />
         </div>
-        <h2 className="mt-6 text-center text-4xl font-extrabold text-gray-900">
+        <h2
+          className={`mt-6 text-center text-4xl font-extrabold ${
+            isDarkMode ? "text-white" : "text-gray-900"
+          }`}
+        >
           Equipa Diferente
         </h2>
-        <p className="mt-2 text-center text-lg text-gray-600">
+        <p
+          className={`mt-2 text-center text-lg ${
+            isDarkMode ? "text-gray-300" : "text-gray-600"
+          }`}
+        >
           Entre com suas credenciais
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-2xl sm:rounded-xl sm:px-10 border border-gray-100">
+        <div
+          className={`${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-100"
+          } py-8 px-4 shadow-2xl sm:rounded-xl sm:px-10 border transition-colors duration-200`}
+        >
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label
                 htmlFor="userId"
-                className="block text-sm font-medium text-gray-700"
+                className={`block text-sm font-medium ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                }`}
               >
                 Código de operador
               </label>
               <div className="mt-1 relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <svg
-                    className="h-5 w-5 text-gray-400"
+                    className={`h-5 w-5 ${
+                      isDarkMode ? "text-gray-400" : "text-gray-400"
+                    }`}
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 20 20"
                     fill="currentColor"
@@ -99,7 +139,11 @@ export default function Login() {
                   pattern="\d*"
                   maxLength={4}
                   required
-                  className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all duration-200"
+                  className={`appearance-none block w-full pl-10 pr-3 py-3 border ${
+                    isDarkMode
+                      ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400"
+                      : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"
+                  } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all duration-200`}
                   placeholder="4 dígitos"
                   value={userId}
                   onChange={handleChange}
@@ -110,14 +154,18 @@ export default function Login() {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
+                className={`block text-sm font-medium ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                }`}
               >
                 Senha
               </label>
               <div className="mt-1 relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <svg
-                    className="h-5 w-5 text-gray-400"
+                    className={`h-5 w-5 ${
+                      isDarkMode ? "text-gray-400" : "text-gray-400"
+                    }`}
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 20 20"
                     fill="currentColor"
@@ -137,7 +185,12 @@ export default function Login() {
                   pattern="\d*"
                   maxLength={6}
                   required
-                  className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all duration-200"
+                  autoComplete="current-password"
+                  className={`appearance-none block w-full pl-10 pr-3 py-3 border ${
+                    isDarkMode
+                      ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400"
+                      : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"
+                  } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all duration-200`}
                   placeholder="6 dígitos"
                   value={password}
                   onChange={handleChange}
@@ -146,7 +199,13 @@ export default function Login() {
             </div>
 
             {error && (
-              <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-md">
+              <div
+                className={`${
+                  isDarkMode
+                    ? "bg-red-900 border-red-700"
+                    : "bg-red-50 border-red-400"
+                } border-l-4 p-4 rounded-md`}
+              >
                 <div className="flex">
                   <div className="flex-shrink-0">
                     <svg
@@ -163,7 +222,13 @@ export default function Login() {
                     </svg>
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm text-red-700">{error}</p>
+                    <p
+                      className={`text-sm ${
+                        isDarkMode ? "text-red-300" : "text-red-700"
+                      }`}
+                    >
+                      {error}
+                    </p>
                   </div>
                 </div>
               </div>

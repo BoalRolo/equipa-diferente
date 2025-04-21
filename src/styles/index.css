@@ -1,3 +1,43 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Prevent text selection highlighting */
+input,
+button,
+[role="combobox"] {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Improve input appearance in dark mode */
+.dark input,
+.dark [role="combobox"] {
+  background-color: rgb(55, 65, 81) !important; /* gray-700 */
+  color: white !important;
+}
+
+/* Fix input highlight color */
+input::selection,
+[role="combobox"]::selection {
+  background-color: transparent;
+}
+
+/* Fix input background color when autofilled */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px white inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px rgb(55, 65, 81) inset !important;
+  -webkit-text-fill-color: white !important;
+}

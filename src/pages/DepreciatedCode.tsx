@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { useDarkMode } from "../contexts/DarkModeContext";
 
 interface FormState {
   ean: string;
@@ -19,6 +20,7 @@ const DepreciatedCode = () => {
   const [formState, setFormState] = useState<FormState>(initialState);
   const [codigo, setCodigo] = useState("");
   const [copied, setCopied] = useState(false);
+  const { isDarkMode } = useDarkMode();
 
   const handleChange = (field: keyof FormState, value: string) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
@@ -99,7 +101,11 @@ const DepreciatedCode = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div
+      className={`min-h-screen transition-colors duration-200 ${
+        isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"
+      } py-8 px-4 sm:px-6 lg:px-8`}
+    >
       <div className="max-w-4xl mx-auto">
         <Link
           to="/"
@@ -121,13 +127,25 @@ const DepreciatedCode = () => {
           Voltar à Home
         </Link>
 
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+        <div
+          className={`bg-white shadow-lg rounded-lg overflow-hidden ${
+            isDarkMode ? "bg-gray-800" : "bg-white"
+          }`}
+        >
           <div className="p-8">
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center justify-center">
+              <h1
+                className={`text-3xl font-bold flex items-center justify-center ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
                 <span className="mr-2">✏️</span> Gerador de Código Depreciado
               </h1>
-              <p className="mt-2 text-gray-600">
+              <p
+                className={`mt-2 ${
+                  isDarkMode ? "text-gray-300" : "text-gray-600"
+                }`}
+              >
                 Gere códigos de depreciação para produtos
               </p>
             </div>
@@ -139,7 +157,9 @@ const DepreciatedCode = () => {
                   <div key={field.id}>
                     <label
                       htmlFor={field.id}
-                      className="block text-sm font-medium text-gray-700 mb-1"
+                      className={`block text-sm font-medium mb-1 ${
+                        isDarkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
                     >
                       {field.label}
                     </label>
@@ -155,7 +175,11 @@ const DepreciatedCode = () => {
                       }
                       maxLength={field.maxLength}
                       placeholder={field.placeholder}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400"
+                      className={`w-full px-4 py-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
+                        isDarkMode
+                          ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                          : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
+                      }`}
                     />
                   </div>
                 ))}
@@ -171,19 +195,35 @@ const DepreciatedCode = () => {
 
               {/* Result */}
               {codigo && (
-                <div className="mt-6 bg-gray-50 rounded-lg p-4">
+                <div
+                  className={`mt-6 rounded-lg p-4 ${
+                    isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                  }`}
+                >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-500">
+                      <p
+                        className={`text-sm font-medium ${
+                          isDarkMode ? "text-gray-300" : "text-gray-500"
+                        }`}
+                      >
                         Código Depreciado
                       </p>
-                      <p className="mt-1 text-2xl font-bold text-gray-900 font-mono">
+                      <p
+                        className={`mt-1 text-2xl font-bold font-mono ${
+                          isDarkMode ? "text-white" : "text-gray-900"
+                        }`}
+                      >
                         {codigo}
                       </p>
                     </div>
                     <button
                       onClick={copyToClipboard}
-                      className="ml-4 p-2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                      className={`ml-4 p-2 focus:outline-none ${
+                        isDarkMode
+                          ? "text-gray-300 hover:text-white"
+                          : "text-gray-500 hover:text-gray-700"
+                      }`}
                       title="Copiar para a área de transferência"
                     >
                       {copied ? (

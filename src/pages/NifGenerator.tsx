@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { useDarkMode } from "../contexts/DarkModeContext";
 
 interface CountryOption {
   value: string;
@@ -19,6 +20,7 @@ const NifGenerator = () => {
   const [nif, setNif] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const { isDarkMode } = useDarkMode();
 
   const selectedCountry = countries.find((c) => c.value === pais)!;
 
@@ -96,7 +98,11 @@ const NifGenerator = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div
+      className={`min-h-screen transition-colors duration-200 ${
+        isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"
+      } py-8 px-4 sm:px-6 lg:px-8`}
+    >
       <div className="max-w-4xl mx-auto">
         {/* Botão Voltar */}
         <Link
@@ -119,14 +125,26 @@ const NifGenerator = () => {
           Voltar à Home
         </Link>
 
-        <div className="bg-white shadow-lg rounded-lg overflow-visible">
+        <div
+          className={`${
+            isDarkMode ? "bg-gray-800" : "bg-white"
+          } shadow-lg rounded-lg overflow-visible`}
+        >
           <div className="p-8">
             {/* Título */}
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center justify-center">
+              <h1
+                className={`text-3xl font-bold flex items-center justify-center ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
                 {selectedCountry.flag} Gerador de NIF
               </h1>
-              <p className="mt-2 text-gray-600">
+              <p
+                className={`mt-2 ${
+                  isDarkMode ? "text-gray-300" : "text-gray-600"
+                }`}
+              >
                 Gere números de identificação fiscal válidos para diferentes
                 países
               </p>
@@ -137,7 +155,11 @@ const NifGenerator = () => {
               <div className="relative">
                 <button
                   type="button"
-                  className="relative w-full bg-white border border-gray-300 rounded-lg pl-3 pr-10 py-3 text-left cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className={`relative w-full border rounded-lg pl-3 pr-10 py-3 text-left cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                    isDarkMode
+                      ? "bg-gray-700 border-gray-600 text-white"
+                      : "bg-white border-gray-300 text-gray-900"
+                  }`}
                   onClick={() => setIsOpen(!isOpen)}
                 >
                   <span className="flex items-center">
@@ -150,18 +172,15 @@ const NifGenerator = () => {
                   </span>
                   <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
                     <svg
-                      className="h-5 w-5 text-gray-400"
+                      className={`h-5 w-5 ${
+                        isDarkMode ? "text-gray-400" : "text-gray-400"
+                      }`}
                       viewBox="0 0 20 20"
                       fill="currentColor"
                     >
                       <path
                         fillRule="evenodd"
-                        d="M10 3a1 1 0 01.707.293l3 3a1 1 0
-                           01-1.414 1.414L10 5.414 7.707 7.707a1 
-                           1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707
-                           9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1
-                           1 0 011.414 1.414l-3 3a1 1 0 01-1.414
-                           0l-3-3a1 1 0 010-1.414z"
+                        d="M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
                         clipRule="evenodd"
                       />
                     </svg>
@@ -171,13 +190,14 @@ const NifGenerator = () => {
                 {/* Dropdown flutuante */}
                 {isOpen && (
                   <>
-                    {/* Click fora */}
                     <div
                       className="fixed inset-0 z-10"
                       onClick={() => setIsOpen(false)}
                     />
                     <ul
-                      className="absolute z-20 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 ring-1 ring-black ring-opacity-5 overflow-auto sm:text-sm"
+                      className={`absolute z-20 mt-1 w-full shadow-lg max-h-60 rounded-md py-1 ring-1 ring-black ring-opacity-5 overflow-auto sm:text-sm ${
+                        isDarkMode ? "bg-gray-700" : "bg-white"
+                      }`}
                       role="listbox"
                     >
                       {countries.map((country) => (
@@ -185,9 +205,13 @@ const NifGenerator = () => {
                           key={country.value}
                           className={`cursor-pointer select-none relative py-2 pl-3 pr-9 ${
                             country.value === pais
-                              ? "bg-gray-50 text-blue-600"
-                              : "text-gray-900"
-                          } hover:bg-gray-100`}
+                              ? isDarkMode
+                                ? "bg-gray-600 text-white"
+                                : "bg-gray-50 text-blue-600"
+                              : isDarkMode
+                              ? "text-gray-200 hover:bg-gray-600"
+                              : "text-gray-900 hover:bg-gray-100"
+                          }`}
                           role="option"
                           onClick={() => {
                             setPais(country.value);
@@ -199,17 +223,21 @@ const NifGenerator = () => {
                               {country.flag}
                             </span>
                             <span
-                              className={`block truncate ${
+                              className={
                                 country.value === pais
                                   ? "font-semibold"
                                   : "font-normal"
-                              }`}
+                              }
                             >
                               {country.label}
                             </span>
                           </div>
                           {country.value === pais && (
-                            <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-blue-600">
+                            <span
+                              className={`absolute inset-y-0 right-0 flex items-center pr-4 ${
+                                isDarkMode ? "text-white" : "text-blue-600"
+                              }`}
+                            >
                               <svg
                                 className="h-5 w-5"
                                 viewBox="0 0 20 20"
@@ -217,11 +245,7 @@ const NifGenerator = () => {
                               >
                                 <path
                                   fillRule="evenodd"
-                                  d="M16.707 5.293a1 1 0 010 
-                                     1.414l-8 8a1 1 0 01-1.414 
-                                     0l-4-4a1 1 0 011.414-1.414L8 
-                                     12.586l7.293-7.293a1 1 0
-                                     011.414 0z"
+                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
                                   clipRule="evenodd"
                                 />
                               </svg>
@@ -244,20 +268,36 @@ const NifGenerator = () => {
 
               {/* Resultado */}
               {nif && (
-                <div className="mt-6 bg-gray-50 rounded-lg p-4">
+                <div
+                  className={`mt-6 rounded-lg p-4 ${
+                    isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                  }`}
+                >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-500">
+                      <p
+                        className={`text-sm font-medium ${
+                          isDarkMode ? "text-gray-300" : "text-gray-500"
+                        }`}
+                      >
                         NIF Gerado para {selectedCountry.flag}{" "}
                         {selectedCountry.label}
                       </p>
-                      <p className="mt-1 text-2xl font-bold text-gray-900 font-mono">
+                      <p
+                        className={`mt-1 text-2xl font-bold font-mono ${
+                          isDarkMode ? "text-white" : "text-gray-900"
+                        }`}
+                      >
                         {nif}
                       </p>
                     </div>
                     <button
                       onClick={copyToClipboard}
-                      className="ml-4 p-2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                      className={`ml-4 p-2 focus:outline-none ${
+                        isDarkMode
+                          ? "text-gray-300 hover:text-white"
+                          : "text-gray-500 hover:text-gray-700"
+                      }`}
                       title="Copiar para a área de transferência"
                     >
                       {copied ? (
@@ -285,12 +325,7 @@ const NifGenerator = () => {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M8 5H6a2 2 0 00-2 2v12a2 
-                               2 0 002 2h10a2 2 0 002-2v-1M8 
-                               5a2 2 0 002 2h2a2 2 0 002-2M8 
-                               5a2 2 0 012-2h2a2 2 0 012 2m0 
-                               0h2a2 2 0 012 2v3m2 4H10m0 
-                               0l3-3m-3 3l3 3"
+                            d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
                           />
                         </svg>
                       )}

@@ -2,9 +2,13 @@
 import React, { useState, useEffect } from "react";
 import { Combobox } from "@headlessui/react";
 import SyntaxHighlighter from "react-syntax-highlighter/dist/esm/prism-async-light";
-import { tomorrow, okaidia } from "react-syntax-highlighter/dist/esm/styles/prism";
+import {
+  tomorrow,
+  okaidia,
+} from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Link } from "react-router-dom";
 import { fetchSuggestions, addSuggestion } from "../services/firebase";
+import { useDarkMode } from "../contexts/DarkModeContext";
 
 interface Step {
   Action: string;
@@ -22,6 +26,7 @@ export default function JsonGenerator() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [copied, setCopied] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const { isDarkMode } = useDarkMode();
 
   // sugestões por campo
   const [suggestions, setSuggestions] = useState<{
@@ -43,7 +48,11 @@ export default function JsonGenerator() {
   // pré-carrega todas as sugestões (busca com prefixo vazio)
   useEffect(() => {
     (async () => {
-      for (const field of ["Action", "Data", "Expected Result"] as (keyof Step)[]) {
+      for (const field of [
+        "Action",
+        "Data",
+        "Expected Result",
+      ] as (keyof Step)[]) {
         const arr = await fetchSuggestions(field, "");
         setSuggestions((s) => ({ ...s, [field]: arr }));
       }
@@ -92,7 +101,9 @@ export default function JsonGenerator() {
   const startEditing = (i: number) => {
     setFormState(steps[i]);
     setEditingIndex(i);
-    document.querySelector(".bg-gray-50.p-6")?.scrollIntoView({ behavior: "smooth" });
+    document
+      .querySelector(".bg-gray-50.p-6")
+      ?.scrollIntoView({ behavior: "smooth" });
   };
 
   const cancelEditing = () => {
@@ -151,20 +162,28 @@ export default function JsonGenerator() {
       onChange={(v) => handleChange(field, v)}
     >
       <Combobox.Input
-        className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+        className={`w-full px-4 py-2 border ${
+          isDarkMode
+            ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400"
+            : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"
+        } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
         displayValue={(v: string) => v}
         onChange={(e) => handleChange(field, e.target.value)}
         placeholder={`Enter ${field.toLowerCase()}...`}
       />
       {suggestions[field].length > 0 && (
-        <Combobox.Options className="absolute z-50 mt-1 w-full bg-white shadow-lg max-h-60 overflow-auto rounded-md ring-1 ring-black ring-opacity-5">
+        <Combobox.Options
+          className={`absolute z-50 mt-1 w-full ${
+            isDarkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"
+          } shadow-lg max-h-60 overflow-auto rounded-md ring-1 ring-black ring-opacity-5`}
+        >
           {suggestions[field].map((opt, idx) => (
             <Combobox.Option
               key={idx}
               value={opt}
               className={({ active }) =>
                 `cursor-pointer select-none py-2 px-4 ${
-                  active ? "bg-blue-100" : ""
+                  active ? (isDarkMode ? "bg-gray-700" : "bg-blue-100") : ""
                 }`
               }
             >
@@ -177,42 +196,80 @@ export default function JsonGenerator() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div
+      className={`min-h-screen transition-colors duration-200 ${
+        isDarkMode ? "bg-gray-900" : "bg-gray-50"
+      } py-8 px-4 sm:px-6 lg:px-8`}
+    >
       <div className="max-w-4xl mx-auto">
-        <Link to="/" className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-8">
+        <Link
+          to="/"
+          className={`inline-flex items-center ${
+            isDarkMode
+              ? "text-blue-400 hover:text-blue-300"
+              : "text-blue-600 hover:text-blue-800"
+          } mb-8`}
+        >
           ← Back to Home
         </Link>
 
-        <div className="bg-white shadow-lg rounded-lg overflow-visible">
+        <div
+          className={`${
+            isDarkMode ? "bg-gray-800" : "bg-white"
+          } shadow-lg rounded-lg overflow-visible`}
+        >
           <div className="p-6 space-y-6">
-
             {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">Title</label>
+              <label
+                className={`block text-sm font-medium ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                }`}
+              >
+                Title
+              </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Enter a title for export..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm"
+                className={`w-full px-4 py-2 border ${
+                  isDarkMode
+                    ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400"
+                    : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"
+                } rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
               />
             </div>
 
             {/* Form */}
-            <div className="bg-gray-50 p-6 rounded-lg space-y-4 overflow-visible">
-              <h2 className="text-lg font-semibold text-gray-900">
+            <div
+              className={`${
+                isDarkMode ? "bg-gray-700" : "bg-gray-50"
+              } p-6 rounded-lg space-y-4 overflow-visible`}
+            >
+              <h2
+                className={`text-lg font-semibold ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
                 {editingIndex !== null ? "Edit Step" : "Add a Step"}
               </h2>
 
               <div className="space-y-4">
-                {( ["Action", "Data", "Expected Result"] as (keyof Step)[] ).map(field => (
-                  <div key={field}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {field}
-                    </label>
-                    {renderCombobox(field)}
-                  </div>
-                ))}
+                {(["Action", "Data", "Expected Result"] as (keyof Step)[]).map(
+                  (field) => (
+                    <div key={field}>
+                      <label
+                        className={`block text-sm font-medium ${
+                          isDarkMode ? "text-gray-300" : "text-gray-700"
+                        } mb-1`}
+                      >
+                        {field}
+                      </label>
+                      {renderCombobox(field)}
+                    </div>
+                  )
+                )}
               </div>
 
               <div className="flex gap-3">
@@ -236,91 +293,171 @@ export default function JsonGenerator() {
             {/* Steps List */}
             {steps.length > 0 && (
               <div className="space-y-4">
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2
+                  className={`text-lg font-semibold ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
                   Steps ({steps.length})
                 </h2>
                 <div className="space-y-3">
                   {steps.map((step, i) => (
                     <div
                       key={i}
-                      className="bg-gray-50 rounded-lg p-4 relative group"
+                      className={`${
+                        isDarkMode ? "bg-gray-700" : "bg-gray-100"
+                      } rounded-lg p-4 relative group`}
                     >
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex space-x-2 bg-white bg-opacity-90 p-1 rounded-md shadow">
+                      <div
+                        className={`absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex space-x-2 ${
+                          isDarkMode ? "bg-gray-800" : "bg-white"
+                        } bg-opacity-90 p-1 rounded-md shadow`}
+                      >
                         <button
                           onClick={() => moveStep(i, "up")}
-                          disabled={i === 0}
-                          className="p-1 text-gray-600 hover:text-gray-800 focus:outline-none"
-                          title="Move Up"
+                          className={`p-1 ${
+                            isDarkMode
+                              ? "text-gray-300 hover:text-white"
+                              : "text-gray-600 hover:text-gray-900"
+                          }`}
                         >
-                          ↑
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 15l7-7 7 7"
+                            />
+                          </svg>
                         </button>
                         <button
                           onClick={() => moveStep(i, "down")}
-                          disabled={i === steps.length - 1}
-                          className="p-1 text-gray-600 hover:text-gray-800 focus:outline-none"
-                          title="Move Down"
+                          className={`p-1 ${
+                            isDarkMode
+                              ? "text-gray-300 hover:text-white"
+                              : "text-gray-600 hover:text-gray-900"
+                          }`}
                         >
-                          ↓
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
                         </button>
                         <button
                           onClick={() => startEditing(i)}
-                          className="p-1 text-blue-600 hover:text-blue-800 focus:outline-none"
-                          title="Edit"
+                          className="p-1 text-blue-600 hover:text-blue-800"
                         >
-                          ✎
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
+                          </svg>
                         </button>
                         <button
                           onClick={() => deleteStep(i)}
-                          className="p-1 text-red-600 hover:text-red-800 focus:outline-none"
-                          title="Delete"
+                          className="p-1 text-red-600 hover:text-red-800"
                         >
-                          ×
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
                         </button>
                       </div>
-                      <SyntaxHighlighter
-                        language="json"
-                        style={tomorrow}
-                        className="rounded-md"
-                      >
-                        {JSON.stringify(step, null, 2)}
-                      </SyntaxHighlighter>
+                      <div className="space-y-3">
+                        {Object.entries(step).map(([key, value]) => (
+                          <div key={key}>
+                            <span
+                              className={`text-sm font-bold ${
+                                isDarkMode ? "text-gray-300" : "text-gray-700"
+                              }`}
+                            >
+                              {key}:
+                            </span>
+                            <p
+                              className={`mt-1 ${
+                                isDarkMode ? "text-gray-100" : "text-gray-600"
+                              }`}
+                            >
+                              {value || "N/A"}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Generated JSON */}
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Generated JSON
-              </h2>
-              <SyntaxHighlighter
-                language="json"
-                style={okaidia}
-                className="rounded-lg p-4"
-              >
-                {JSON.stringify(steps, null, 2)}
-              </SyntaxHighlighter>
-              <div className="flex gap-4">
+            {/* Export and Copy Buttons */}
+            {steps.length > 0 && (
+              <div className="flex gap-3">
                 <button
                   onClick={exportJSON}
-                  className="bg-green-600 text-white py-2 px-4 rounded-md"
+                  className="flex-1 bg-green-600 text-white py-2 rounded-md hover:bg-green-700"
                 >
                   Export JSON
                 </button>
                 <button
                   onClick={copyJSON}
-                  className="bg-blue-600 text-white py-2 px-4 rounded-md"
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
                 >
-                  Copy JSON
+                  {copied ? "Copied!" : "Copy JSON"}
                 </button>
-                {copied && (
-                  <span className="text-green-600 flex items-center">✓ Copied!</span>
-                )}
               </div>
-            </div>
+            )}
 
+            {/* JSON Preview */}
+            {steps.length > 0 && (
+              <div
+                className={`mt-6 ${
+                  isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                } rounded-lg p-4`}
+              >
+                <SyntaxHighlighter
+                  language="json"
+                  style={isDarkMode ? okaidia : tomorrow}
+                  customStyle={{
+                    background: "transparent",
+                    padding: 0,
+                    margin: 0,
+                  }}
+                >
+                  {JSON.stringify(steps, null, 2)}
+                </SyntaxHighlighter>
+              </div>
+            )}
           </div>
         </div>
       </div>
