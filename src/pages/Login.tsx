@@ -17,7 +17,7 @@ export default function Login() {
     if (/^\d*$/.test(value)) {
       if (
         (name === "userId" && value.length <= 4) ||
-        (name === "password" && value.length <= 6)
+        (name === "password" && value.length <= 8)
       ) {
         if (name === "userId") {
           setUserId(value);
@@ -36,8 +36,8 @@ export default function Login() {
       return;
     }
 
-    if (password.length !== 6) {
-      setError("A senha deve ter 6 dígitos");
+    if (password.length !== 6 && password.length !== 8) {
+      setError("A senha deve ter 6 ou 8 dígitos");
       return;
     }
 
@@ -183,7 +183,7 @@ export default function Login() {
                   type="password"
                   inputMode="numeric"
                   pattern="\d*"
-                  maxLength={6}
+                  maxLength={8}
                   required
                   autoComplete="current-password"
                   className={`appearance-none block w-full pl-10 pr-3 py-3 border ${
@@ -191,7 +191,7 @@ export default function Login() {
                       ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400"
                       : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"
                   } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all duration-200`}
-                  placeholder="6 dígitos"
+                  placeholder="6 ou 8 dígitos"
                   value={password}
                   onChange={handleChange}
                 />

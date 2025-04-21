@@ -5,7 +5,7 @@ interface User {
   darkMode?: boolean;
 }
 
-// Mock users with their 4-digit IDs and 6-digit passwords
+// Mock users with their 4-digit IDs and 6 or 8-digit passwords
 export const mockUsers: User[] = [
   {
     userId: "3694",
@@ -14,8 +14,8 @@ export const mockUsers: User[] = [
     darkMode: true, // Administrator prefers dark mode
   },
   {
-    userId: "1234",
-    password: "112233",
+    userId: "3119",
+    password: "11223344",
     name: "Filipe Silva",
     darkMode: false, // João prefers light mode
   },
@@ -29,6 +29,12 @@ export const mockUsers: User[] = [
     userId: "9012",
     password: "901234",
     name: "Pedro Costa",
+    darkMode: false,
+  },
+  {
+    userId: "1111",
+    password: "11223344",
+    name: "Test User",
     darkMode: false,
   },
 ];
