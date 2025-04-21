@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Combobox } from "@headlessui/react";
 import { Link } from "react-router-dom";
 import { useDarkMode } from "../contexts/DarkModeContext";
+import Header from "../components/Header";
 
 interface FunctionItem {
   code: string;
@@ -106,89 +107,94 @@ export default function FunctionNumber() {
     <div
       className={`min-h-screen transition-colors duration-200 ${
         isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"
-      } py-8 px-4 sm:px-6 lg:px-8`}
+      }`}
     >
-      <div
-        className={`max-w-lg mx-auto ${
-          isDarkMode ? "bg-gray-800" : "bg-white"
-        } shadow-lg rounded-lg p-6 space-y-6`}
-      >
-        <Link
-          to="/"
-          className={`inline-flex items-center ${
-            isDarkMode
-              ? "text-blue-400 hover:text-blue-300"
-              : "text-blue-600 hover:text-blue-800"
-          }`}
+      <Header />
+      <main className="py-8 px-4 sm:px-6 lg:px-8">
+        <div
+          className={`max-w-lg mx-auto ${
+            isDarkMode ? "bg-gray-800" : "bg-white"
+          } shadow-lg rounded-lg p-6 space-y-6`}
         >
-          ← Voltar à Home
-        </Link>
-
-        <h1
-          className={`text-2xl font-bold ${
-            isDarkMode ? "text-white" : "text-gray-900"
-          }`}
-        >
-          Qual o nº da função?
-        </h1>
-
-        <Combobox value={selected} onChange={setSelected}>
-          <div className="relative">
-            <Combobox.Input
-              className={`w-full px-4 py-2 border ${
-                isDarkMode
-                  ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400"
-                  : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"
-              } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-              displayValue={(fn: FunctionItem) => fn?.name || query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Digite o nome da função..."
-            />
-            {filtered.length > 0 && (
-              <Combobox.Options
-                className={`absolute z-10 mt-1 w-full ${
-                  isDarkMode ? "bg-gray-700" : "bg-white"
-                } shadow-lg max-h-60 overflow-auto rounded-md ring-1 ring-black ring-opacity-5`}
-              >
-                {filtered.map((fn) => (
-                  <Combobox.Option
-                    key={fn.code}
-                    value={fn}
-                    className={({ active }) =>
-                      `cursor-pointer select-none px-4 py-2 ${
-                        active
-                          ? isDarkMode
-                            ? "bg-gray-600 text-white"
-                            : "bg-blue-100 text-blue-700"
-                          : isDarkMode
-                          ? "text-gray-200"
-                          : "text-gray-900"
-                      }`
-                    }
-                  >
-                    {fn.name}
-                  </Combobox.Option>
-                ))}
-              </Combobox.Options>
-            )}
-          </div>
-        </Combobox>
-
-        {selected && (
-          <p
-            className={`mt-4 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}
+          <Link
+            to="/"
+            className={`inline-flex items-center ${
+              isDarkMode
+                ? "text-blue-400 hover:text-blue-300"
+                : "text-blue-600 hover:text-blue-800"
+            }`}
           >
-            Função nº:{" "}
-            <span
-              className={`font-mono ${
-                isDarkMode ? "bg-gray-700" : "bg-gray-100"
-              } px-2 py-1 rounded`}
+            ← Voltar à Home
+          </Link>
+
+          <h1
+            className={`text-2xl font-bold ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
+            Qual o nº da função?
+          </h1>
+
+          <Combobox value={selected} onChange={setSelected}>
+            <div className="relative">
+              <Combobox.Input
+                className={`w-full px-4 py-2 border ${
+                  isDarkMode
+                    ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400"
+                    : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"
+                } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+                displayValue={(fn: FunctionItem) => fn?.name || query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Digite o nome da função..."
+              />
+              {filtered.length > 0 && (
+                <Combobox.Options
+                  className={`absolute z-10 mt-1 w-full ${
+                    isDarkMode ? "bg-gray-700" : "bg-white"
+                  } shadow-lg max-h-60 overflow-auto rounded-md ring-1 ring-black ring-opacity-5`}
+                >
+                  {filtered.map((fn) => (
+                    <Combobox.Option
+                      key={fn.code}
+                      value={fn}
+                      className={({ active }) =>
+                        `cursor-pointer select-none px-4 py-2 ${
+                          active
+                            ? isDarkMode
+                              ? "bg-gray-600 text-white"
+                              : "bg-blue-100 text-blue-700"
+                            : isDarkMode
+                            ? "text-gray-200"
+                            : "text-gray-900"
+                        }`
+                      }
+                    >
+                      {fn.name}
+                    </Combobox.Option>
+                  ))}
+                </Combobox.Options>
+              )}
+            </div>
+          </Combobox>
+
+          {selected && (
+            <p
+              className={`mt-4 ${
+                isDarkMode ? "text-gray-300" : "text-gray-700"
+              }`}
             >
-              {selected.code}
-            </span>
-          </p>
-        )}
-      </div>
+              Função nº:{" "}
+              <span
+                className={`font-mono ${
+                  isDarkMode ? "bg-gray-700" : "bg-gray-100"
+                } px-2 py-1 rounded`}
+              >
+                {selected.code}
+              </span>
+            </p>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
