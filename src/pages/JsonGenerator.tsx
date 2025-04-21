@@ -17,6 +17,35 @@ interface Step {
   "Expected Result": string;
 }
 
+const syntaxHighlight = (json: string, isDarkMode: boolean) => {
+  const colors = {
+    string: isDarkMode ? "text-green-400" : "text-green-600",
+    number: isDarkMode ? "text-blue-400" : "text-blue-600",
+    boolean: isDarkMode ? "text-yellow-400" : "text-yellow-600",
+    null: isDarkMode ? "text-red-400" : "text-red-600",
+    key: isDarkMode ? "text-purple-400" : "text-purple-600",
+  };
+
+  return json.replace(
+    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+    (match) => {
+      let cls = colors.number; // number
+      if (/^"/.test(match)) {
+        if (/:$/.test(match)) {
+          cls = colors.key; // key
+        } else {
+          cls = colors.string; // string
+        }
+      } else if (/true|false/.test(match)) {
+        cls = colors.boolean; // boolean
+      } else if (/null/.test(match)) {
+        cls = colors.null; // null
+      }
+      return `<span class="${cls}">${match}</span>`;
+    }
+  );
+};
+
 export default function JsonGenerator() {
   const [title, setTitle] = useState("");
   const [formState, setFormState] = useState<Step>({
@@ -448,17 +477,17 @@ export default function JsonGenerator() {
                     isDarkMode ? "bg-gray-700" : "bg-gray-50"
                   } rounded-lg p-4`}
                 >
-                  <SyntaxHighlighter
-                    language="json"
-                    style={isDarkMode ? okaidia : tomorrow}
-                    customStyle={{
-                      background: "transparent",
-                      padding: 0,
-                      margin: 0,
+                  <pre
+                    className={`font-mono text-sm whitespace-pre-wrap break-all ${
+                      isDarkMode ? "text-gray-200" : "text-gray-800"
+                    }`}
+                    dangerouslySetInnerHTML={{
+                      __html: syntaxHighlight(
+                        JSON.stringify(steps, null, 2),
+                        isDarkMode
+                      ),
                     }}
-                  >
-                    {JSON.stringify(steps, null, 2)}
-                  </SyntaxHighlighter>
+                  />
                 </div>
               )}
             </div>
