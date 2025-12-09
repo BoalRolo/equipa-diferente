@@ -9,6 +9,7 @@ import DepreciatedCode from "./pages/DepreciatedCode";
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import FunctionNumber from "./pages/FunctionNumber";
+import ImportEvidence from "./pages/ImportEvidence";
 import { DarkModeProvider } from "./contexts/DarkModeContext";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -54,6 +55,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             element={
               <ProtectedRoute>
                 <FunctionNumber />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/import-evidence"
+            element={
+              <ProtectedRoute>
+                <ImportEvidence />
               </ProtectedRoute>
             }
           />
