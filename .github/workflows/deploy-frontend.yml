@@ -1,0 +1,60 @@
+name: Deploy Frontend to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main # Altere para 'master' se usar essa branch
+    paths:
+      # Só faz deploy se houver alterações nestes ficheiros/pastas
+      - "src/**"
+      - "public/**"
+      - "index.html"
+      - "vite.config.ts"
+      - "package.json"
+      - ".env"
+      # Ignora alterações no backend
+      - "!server/**"
+      - "!vercel.json"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # Use variáveis de ambiente do GitHub Secrets
+          VITE_XRAY_BASE_URL: ${{ secrets.VITE_XRAY_BASE_URL }}
+          VITE_XRAY_CLIENT_ID: ${{ secrets.VITE_XRAY_CLIENT_ID }}
+          VITE_XRAY_CLIENT_SECRET: ${{ secrets.VITE_XRAY_CLIENT_SECRET }}
+          VITE_BACKEND_URL: ${{ secrets.VITE_BACKEND_URL }}
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "./dist"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
