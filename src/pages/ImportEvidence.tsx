@@ -6,6 +6,7 @@ import {
   importExecution,
   XrayTest,
   XrayEvidence,
+  XrayImportRequest,
 } from "../services/xrayCloud";
 
 interface FileWithTestRun {
@@ -201,11 +202,8 @@ export default function ImportEvidence() {
       }
 
       // Step 3: Import execution
-      const importData = {
+      const importData: XrayImportRequest = {
         testExecutionKey: testExecutionKey.trim(),
-        info: {
-          summary: `Upload de Evidência e Status para ${testExecutionKey.trim()}`,
-        },
         tests,
       };
 

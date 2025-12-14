@@ -20,9 +20,6 @@ export interface XrayTest {
 
 export interface XrayImportRequest {
   testExecutionKey: string;
-  info: {
-    summary: string;
-  };
   tests: XrayTest[];
 }
 

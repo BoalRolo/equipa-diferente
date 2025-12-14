@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "dev:server": "node server/index.js",
+    "dev:server:debug": "node --inspect server/index.js",
+    "dev:server:debug-brk": "node --inspect-brk server/index.js",
     "dev:all": "concurrently \"npm run dev:server\" \"npm run dev\"",
+    "dev:all:debug": "concurrently \"npm run dev:server:debug\" \"npm run dev\"",
     "build": "tsc -b && vite build",
     "start": "node server/index.js",
     "lint": "eslint .",
