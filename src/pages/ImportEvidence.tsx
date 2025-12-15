@@ -1,12 +1,14 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useDarkMode } from "../contexts/DarkModeContext";
 import Header from "../components/Header";
 import {
   authenticateXray,
   importExecution,
+  validateTestExecution,
   XrayTest,
   XrayEvidence,
   XrayImportRequest,
+  TestExecutionValidation,
 } from "../services/xrayCloud";
 
 interface FileWithTestRun {
@@ -22,10 +24,17 @@ interface GroupedFiles {
 export default function ImportEvidence() {
   const { isDarkMode } = useDarkMode();
   const [testExecutionKey, setTestExecutionKey] = useState("");
+  const [testExecutionNumber, setTestExecutionNumber] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [invalidFiles, setInvalidFiles] = useState<File[]>([]);
   const [groupedFiles, setGroupedFiles] = useState<GroupedFiles>({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationResult, setValidationResult] =
+    useState<TestExecutionValidation | null>(null);
+  const [executingTestRunIds, setExecutingTestRunIds] = useState<Set<string>>(
+    new Set()
+  );
   const [result, setResult] = useState<{
     success: boolean;
     message: string;
@@ -86,6 +95,7 @@ export default function ImportEvidence() {
 
   /**
    * Processes uploaded files and groups them by Test Run
+   * Only allows files for Test Runs that are in EXECUTING status
    */
   const processFiles = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
@@ -94,35 +104,110 @@ export default function ImportEvidence() {
     const grouped: GroupedFiles = {};
     const processedFiles: File[] = [];
     const invalid: File[] = [];
+    const notExecutingFiles: File[] = [];
+
+    // Check if we have executing test run IDs
+    const hasExecutingTests = executingTestRunIds.size > 0;
+
+    // Create a map of test run number to test run ID for quick lookup
+    const testRunNumberToIdMap = new Map<string, string>();
+    if (validationResult?.testRuns?.results) {
+      validationResult.testRuns.results.forEach((tr) => {
+        // Extract test run number from test key (e.g., "UAAS-12345" -> "12345")
+        const testKey = tr.test?.key || "";
+        const match = testKey.match(/UAAS-(\d+)/);
+        if (match) {
+          testRunNumberToIdMap.set(match[1], tr.id);
+        }
+      });
+    }
 
     fileArray.forEach((file) => {
       const testRunNumber = extractTestRunNumber(file.name);
-      if (testRunNumber) {
-        const testKey = `UAAS-${testRunNumber}`;
-        if (!grouped[testRunNumber]) {
-          grouped[testRunNumber] = [];
-        }
-        grouped[testRunNumber].push({
-          file,
-          testRunNumber,
-          testKey,
-        });
-        processedFiles.push(file);
-      } else {
+
+      if (!testRunNumber) {
         invalid.push(file);
+        return;
+      }
+
+      // If we have executing test runs, validate that this test run is in EXECUTING
+      if (hasExecutingTests) {
+        const testRunId = testRunNumberToIdMap.get(testRunNumber);
+
+        if (testRunId && executingTestRunIds.has(testRunId)) {
+          // This test run is in EXECUTING, allow the file
+          const testKey = `UAAS-${testRunNumber}`;
+          if (!grouped[testRunNumber]) {
+            grouped[testRunNumber] = [];
+          }
+          grouped[testRunNumber].push({
+            file,
+            testRunNumber,
+            testKey,
+          });
+          processedFiles.push(file);
+        } else {
+          // This test run is not in EXECUTING
+          notExecutingFiles.push(file);
+        }
+      } else {
+        // If no executing tests, don't allow any files
+        notExecutingFiles.push(file);
       }
     });
 
-    setFiles(fileArray); // Store all files for display
+    setFiles(processedFiles); // Only store valid files
     setInvalidFiles(invalid);
     setGroupedFiles(grouped);
     setResult(null);
+
+    // Show error if there are files for non-executing test runs
+    if (notExecutingFiles.length > 0) {
+      setResult({
+        success: false,
+        message: `Não é possível fazer upload de ${notExecutingFiles.length} ficheiro(s). Estes ficheiros correspondem a Test Runs que não estão em estado EXECUTING. Apenas Test Runs em EXECUTING podem receber evidências.`,
+      });
+    }
   };
 
   /**
    * Handles file/folder input change
    */
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Check if Test Execution is validated
+    if (!validationResult?.valid) {
+      setResult({
+        success: false,
+        message:
+          "Por favor, valide a Test Execution antes de fazer upload de evidências.",
+      });
+      // Clear the input
+      if (e.target) {
+        e.target.value = "";
+      }
+      return;
+    }
+
+    // Check if there are tests in EXECUTING status
+    const executingCount =
+      validationResult?.statusSummary?.["EXECUTING"] ||
+      validationResult?.statusSummary?.["IN PROGRESS"] ||
+      0;
+    const hasExecutingTests = executingCount > 0;
+
+    if (!hasExecutingTests) {
+      setResult({
+        success: false,
+        message:
+          "Não é possível fazer upload. Apenas testes em estado EXECUTING podem receber evidências.",
+      });
+      // Clear the input
+      if (e.target) {
+        e.target.value = "";
+      }
+      return;
+    }
+
     processFiles(e.target.files);
   };
 
@@ -130,6 +215,32 @@ export default function ImportEvidence() {
    * Triggers file or folder selection based on current mode
    */
   const handleUploadClick = () => {
+    // Check if Test Execution is validated
+    if (!validationResult?.valid) {
+      setResult({
+        success: false,
+        message:
+          "Por favor, valide a Test Execution antes de fazer upload de evidências.",
+      });
+      return;
+    }
+
+    // Check if there are tests in EXECUTING status
+    const executingCount =
+      validationResult?.statusSummary?.["EXECUTING"] ||
+      validationResult?.statusSummary?.["IN PROGRESS"] ||
+      0;
+    const hasExecutingTests = executingCount > 0;
+
+    if (!hasExecutingTests) {
+      setResult({
+        success: false,
+        message:
+          "Não é possível fazer upload. Apenas testes em estado EXECUTING podem receber evidências.",
+      });
+      return;
+    }
+
     if (uploadMode === "folder" && folderInputRef.current) {
       folderInputRef.current.click();
     } else if (fileInputRef.current) {
@@ -138,13 +249,122 @@ export default function ImportEvidence() {
   };
 
   /**
+   * Validates Test Execution when the number changes
+   */
+  const validateTestExecutionKey = async (number: string) => {
+    if (!number.trim()) {
+      setValidationResult(null);
+      setTestExecutionKey("");
+      return;
+    }
+
+    // Only validate if we have credentials
+    if (!xrayBaseUrl || !clientId || !clientSecret) {
+      return;
+    }
+
+    setIsValidating(true);
+    setValidationResult(null);
+    setResult(null);
+
+    try {
+      // Step 1: Authenticate
+      const token = await authenticateXray(xrayBaseUrl, clientId, clientSecret);
+
+      // Step 2: Validate Test Execution
+      // Clean the number - remove any "UAAS-" prefix and non-numeric characters
+      const cleanNumber = number
+        .trim()
+        .replace(/^UAAS-?/i, "")
+        .replace(/[^0-9]/g, "");
+      const fullKey = `UAAS-${cleanNumber}`;
+
+      const validation = await validateTestExecution(
+        xrayBaseUrl,
+        token,
+        fullKey
+      );
+
+      if (validation.valid) {
+        setTestExecutionKey(fullKey);
+        setValidationResult(validation);
+
+        // Extract Test Run IDs that are in EXECUTING status
+        const executingIds = new Set<string>();
+        if (validation.testRuns?.results) {
+          validation.testRuns.results.forEach((tr) => {
+            const status = tr.status?.toUpperCase() || "";
+            if (status === "EXECUTING" || status === "IN PROGRESS") {
+              executingIds.add(tr.id);
+            }
+          });
+        }
+        setExecutingTestRunIds(executingIds);
+      } else {
+        setTestExecutionKey("");
+        setValidationResult(validation);
+        console.error("❌ Test Execution not found:", fullKey);
+      }
+    } catch (error: any) {
+      console.error("❌ Validation error:", error);
+      console.error("❌ Error details:", {
+        message: error.message,
+        stack: error.stack,
+      });
+      setTestExecutionKey("");
+      setValidationResult({
+        valid: false,
+        error:
+          error.message ||
+          "Erro ao validar Test Execution. Verifique se o backend está a correr.",
+      });
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  /**
+   * Handles Test Execution number input change
+   */
+  const handleTestExecutionNumberChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    // First remove "UAAS-" prefix if user pastes it, then remove any non-numeric characters
+    let number = e.target.value.replace(/^UAAS-?/i, ""); // Remove UAAS- prefix first
+    number = number.replace(/[^0-9]/g, ""); // Then remove any non-numeric characters
+    setTestExecutionNumber(number);
+    setValidationResult(null);
+    setTestExecutionKey("");
+    setFiles([]);
+    setGroupedFiles({});
+    setExecutingTestRunIds(new Set());
+  };
+
+  /**
+   * Handles manual validation button click
+   */
+  const handleValidateClick = () => {
+    if (!testExecutionNumber.trim()) {
+      setResult({
+        success: false,
+        message: "Por favor, introduza o número da Test Execution",
+      });
+      return;
+    }
+    validateTestExecutionKey(testExecutionNumber);
+  };
+
+  /**
    * Converts grouped files to Xray format and imports to Xray Cloud
    */
   const handleImport = async () => {
-    if (!testExecutionKey.trim()) {
+    if (!testExecutionKey.trim() || !validationResult?.valid) {
       setResult({
         success: false,
-        message: "Por favor, introduza o ID da Test Execution",
+        message:
+          validationResult?.valid === false
+            ? validationResult.error || "Test Execution inválida"
+            : "Por favor, introduza e valide o ID da Test Execution",
       });
       return;
     }
@@ -258,294 +478,15 @@ export default function ImportEvidence() {
             className={`text-xl ${
               isDarkMode ? "text-gray-300" : "text-gray-600"
             } animate-fade-in-up max-w-2xl mx-auto`}
-          >
-          </p>
+          ></p>
         </div>
 
-        <div className="max-w-4xl mx-auto space-y-6">
-          {/* Test Execution Input */}
-          <div
-            className={`${
-              isDarkMode ? "bg-gray-800" : "bg-white"
-            } rounded-xl shadow-lg p-6`}
-          >
-            <h3
-              className={`text-xl font-semibold mb-4 ${
-                isDarkMode ? "text-white" : "text-gray-900"
-              }`}
-            >
-              Test Execution
-            </h3>
-            <div>
-              <label
-                className={`block text-sm font-medium mb-2 ${
-                  isDarkMode ? "text-gray-300" : "text-gray-700"
-                }`}
-              >
-                ID da Test Execution
-              </label>
-              <input
-                type="text"
-                value={testExecutionKey}
-                onChange={(e) => setTestExecutionKey(e.target.value)}
-                placeholder="UAAS-25085"
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDarkMode
-                    ? "bg-gray-700 border-gray-600 text-white"
-                    : "bg-white border-gray-300 text-gray-900"
-                } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-              />
-            </div>
-          </div>
-
-          {/* File Upload Section */}
-          <div
-            className={`${
-              isDarkMode ? "bg-gray-800" : "bg-white"
-            } rounded-xl shadow-lg p-6`}
-          >
-            <h3
-              className={`text-xl font-semibold mb-4 ${
-                isDarkMode ? "text-white" : "text-gray-900"
-              }`}
-            >
-              Upload de Ficheiros
-            </h3>
-            <div className="space-y-4">
-              {/* Upload Mode Toggle */}
-              <div className="flex items-center space-x-4 mb-4">
-                <span
-                  className={`text-sm font-medium ${
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
-                  Modo de upload:
-                </span>
-                <div className="flex space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => setUploadMode("files")}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      uploadMode === "files"
-                        ? "bg-blue-600 text-white"
-                        : isDarkMode
-                        ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    }`}
-                  >
-                    Ficheiros
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUploadMode("folder")}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      uploadMode === "folder"
-                        ? "bg-blue-600 text-white"
-                        : isDarkMode
-                        ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    }`}
-                  >
-                    Pasta
-                  </button>
-                </div>
-              </div>
-
-              {/* Hidden file inputs */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              <input
-                ref={folderInputRef}
-                type="file"
-                {...({ webkitdirectory: "" } as any)}
-                multiple
-                onChange={handleFileChange}
-                className="hidden"
-              />
-
-              {/* Upload Button */}
-              <button
-                type="button"
-                onClick={handleUploadClick}
-                className={`w-full px-6 py-4 rounded-lg border-2 border-dashed transition-all duration-200 ${
-                  isDarkMode
-                    ? "border-gray-600 bg-gray-700 hover:border-blue-500 hover:bg-gray-600 text-white"
-                    : "border-gray-300 bg-gray-50 hover:border-blue-500 hover:bg-blue-50 text-gray-700"
-                }`}
-              >
-                <div className="flex flex-col items-center space-y-2">
-                  <svg
-                    className="w-8 h-8"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                    />
-                  </svg>
-                  <span className="font-medium">
-                    {uploadMode === "folder"
-                      ? "Selecionar Pasta"
-                      : "Selecionar Ficheiros"}
-                  </span>
-                  <span
-                    className={`text-xs ${
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    }`}
-                  >
-                    {uploadMode === "folder"
-                      ? "Selecione uma pasta para fazer upload de todos os ficheiros"
-                      : "Selecione um ou mais ficheiros"}
-                  </span>
-                </div>
-              </button>
-
-              <p
-                className={`text-sm ${
-                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                }`}
-              >
-                Os ficheiros devem seguir o formato:
-                UAAS-&lt;número&gt;.extensão ou
-                UAAS-&lt;número&gt;-qualquer_coisa.extensão
-              </p>
-
-              {/* Files List - Show all uploaded files */}
-              {files.length > 0 && (
-                <div className="mt-6 pt-6 border-t border-gray-600">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4
-                      className={`text-sm font-semibold ${
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      Ficheiros Selecionados ({files.length})
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFiles([]);
-                        setInvalidFiles([]);
-                        setGroupedFiles({});
-                        if (fileInputRef.current) {
-                          fileInputRef.current.value = "";
-                        }
-                        if (folderInputRef.current) {
-                          folderInputRef.current.value = "";
-                        }
-                      }}
-                      className={`text-xs px-3 py-1 rounded ${
-                        isDarkMode
-                          ? "bg-red-600 hover:bg-red-700 text-white"
-                          : "bg-red-100 hover:bg-red-200 text-red-700"
-                      } transition-colors`}
-                    >
-                      Limpar todos
-                    </button>
-                  </div>
-                  <div
-                    className={`max-h-60 overflow-y-auto space-y-2 ${
-                      isDarkMode ? "bg-gray-700" : "bg-gray-50"
-                    } rounded-lg p-4`}
-                  >
-                    {files.map((file, idx) => {
-                      const isValid = extractTestRunNumber(file.name) !== null;
-                      return (
-                        <div
-                          key={idx}
-                          className={`flex items-center justify-between p-2 rounded ${
-                            isValid
-                              ? isDarkMode
-                                ? "bg-green-900/30 border border-green-700/50"
-                                : "bg-green-50 border border-green-200"
-                              : isDarkMode
-                              ? "bg-red-900/30 border border-red-700/50"
-                              : "bg-red-50 border border-red-200"
-                          }`}
-                        >
-                          <div className="flex items-center space-x-2 flex-1 min-w-0">
-                            <svg
-                              className={`w-5 h-5 flex-shrink-0 ${
-                                isValid
-                                  ? isDarkMode
-                                    ? "text-green-400"
-                                    : "text-green-600"
-                                  : isDarkMode
-                                  ? "text-red-400"
-                                  : "text-red-600"
-                              }`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              {isValid ? (
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                              ) : (
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                              )}
-                            </svg>
-                            <span
-                              className={`text-sm truncate ${
-                                isDarkMode ? "text-gray-200" : "text-gray-700"
-                              }`}
-                              title={file.name}
-                            >
-                              {file.name}
-                            </span>
-                          </div>
-                          <span
-                            className={`text-xs ml-2 ${
-                              isValid
-                                ? isDarkMode
-                                  ? "text-green-400"
-                                  : "text-green-600"
-                                : isDarkMode
-                                ? "text-red-400"
-                                : "text-red-600"
-                            }`}
-                          >
-                            {isValid ? "✓ Válido" : "✗ Inválido"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {invalidFiles.length > 0 && (
-                    <p
-                      className={`text-xs mt-2 ${
-                        isDarkMode ? "text-yellow-400" : "text-yellow-600"
-                      }`}
-                    >
-                      ⚠ {invalidFiles.length} ficheiro(s) não seguem o formato
-                      correto e serão ignorados
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Grouped Files Preview */}
-          {Object.keys(groupedFiles).length > 0 && (
+        <div
+          className="max-w-6xl mx-auto px-4 py-8 space-y-6 overflow-y-auto"
+          style={{ maxHeight: "calc(100vh - 200px)" }}
+        >
+          <div className="max-w-4xl mx-auto space-y-6">
+            {/* Test Execution Input */}
             <div
               className={`${
                 isDarkMode ? "bg-gray-800" : "bg-white"
@@ -556,144 +497,729 @@ export default function ImportEvidence() {
                   isDarkMode ? "text-white" : "text-gray-900"
                 }`}
               >
-                Ficheiros Agrupados por Test Run
+                Test Execution
               </h3>
-              <div className="space-y-4">
-                {Object.entries(groupedFiles).map(
-                  ([testRunNumber, fileGroup]) => (
-                    <div
-                      key={testRunNumber}
-                      className={`p-4 rounded-lg ${
-                        isDarkMode ? "bg-gray-700" : "bg-gray-50"
-                      }`}
-                    >
-                      <div
-                        className={`font-semibold mb-2 ${
-                          isDarkMode ? "text-blue-400" : "text-blue-600"
+              <div>
+                <label
+                  className={`block text-sm font-medium mb-2 ${
+                    isDarkMode ? "text-gray-300" : "text-gray-700"
+                  }`}
+                >
+                  Número da Test Execution
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+                      <span
+                        className={`text-sm font-medium ${
+                          isDarkMode ? "text-gray-300" : "text-gray-700"
                         }`}
                       >
-                        Test Run: UAAS-{testRunNumber} ({fileGroup.length}{" "}
-                        ficheiro
-                        {fileGroup.length !== 1 ? "s" : ""})
-                      </div>
-                      <ul className="list-disc list-inside space-y-1">
-                        {fileGroup.map((item, idx) => (
-                          <li
-                            key={idx}
-                            className={`text-sm ${
-                              isDarkMode ? "text-gray-300" : "text-gray-600"
-                            }`}
-                          >
-                            {item.file.name}
-                          </li>
-                        ))}
-                      </ul>
+                        UAAS-
+                      </span>
                     </div>
-                  )
+                    <input
+                      type="text"
+                      value={testExecutionNumber}
+                      onChange={handleTestExecutionNumberChange}
+                      placeholder="Test Execution Number"
+                      disabled={isValidating}
+                      className={`w-full pl-16 pr-4 py-2 rounded-lg border ${
+                        isDarkMode
+                          ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                          : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
+                      } ${
+                        validationResult?.valid === false
+                          ? "border-red-500"
+                          : validationResult?.valid === true
+                          ? "border-green-500"
+                          : ""
+                      } focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50`}
+                    />
+                  </div>
+                  <button
+                    onClick={handleValidateClick}
+                    disabled={isValidating || !testExecutionNumber.trim()}
+                    className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                      isValidating || !testExecutionNumber.trim()
+                        ? isDarkMode
+                          ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : isDarkMode
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                        : "bg-blue-500 text-white hover:bg-blue-600"
+                    }`}
+                  >
+                    {isValidating ? (
+                      <span className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Validar...
+                      </span>
+                    ) : (
+                      "Validar"
+                    )}
+                  </button>
+                </div>
+                {validationResult?.valid === true && !isValidating && (
+                  <div className="mt-2 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-500 text-xl">✓</span>
+                      <p
+                        className={`text-sm ${
+                          isDarkMode ? "text-green-400" : "text-green-600"
+                        }`}
+                      >
+                        Test Execution válida:{" "}
+                        {validationResult.testExecution?.key} -{" "}
+                        {validationResult.testExecution?.summary}
+                        {validationResult.testRuns && (
+                          <span className="ml-2">
+                            ({validationResult.testRuns.total} Test Runs)
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    {validationResult.statusSummary && (
+                      <div className="flex flex-wrap gap-3 ml-7">
+                        {(() => {
+                          // Define order priority for statuses
+                          const statusOrder: Record<string, number> = {
+                            PASSED: 1,
+                            EXECUTING: 2,
+                            "IN PROGRESS": 2,
+                            BLOCKED: 3,
+                            FAILED: 4,
+                            FAIL: 4,
+                            "TO DO": 5,
+                            TODO: 5,
+                            "N/A": 6,
+                            NA: 6,
+                          };
+
+                          // Sort statuses by priority
+                          const sortedStatuses = Object.entries(
+                            validationResult.statusSummary
+                          ).sort(([statusA], [statusB]) => {
+                            const priorityA =
+                              statusOrder[statusA.toUpperCase()] || 999;
+                            const priorityB =
+                              statusOrder[statusB.toUpperCase()] || 999;
+                            return priorityA - priorityB;
+                          });
+
+                          return sortedStatuses.map(([status, count]) => {
+                            // Determine color based on status
+                            let statusColor = "";
+                            let bgColor = "";
+                            const upperStatus = status.toUpperCase();
+                            if (upperStatus === "PASSED") {
+                              statusColor = isDarkMode
+                                ? "text-green-400"
+                                : "text-green-600";
+                              bgColor = isDarkMode
+                                ? "bg-green-900/30"
+                                : "bg-green-50";
+                            } else if (
+                              upperStatus === "EXECUTING" ||
+                              upperStatus === "IN PROGRESS"
+                            ) {
+                              statusColor = isDarkMode
+                                ? "text-yellow-400"
+                                : "text-yellow-600";
+                              bgColor = isDarkMode
+                                ? "bg-yellow-900/30"
+                                : "bg-yellow-50";
+                            } else if (
+                              upperStatus === "TO DO" ||
+                              upperStatus === "TODO"
+                            ) {
+                              statusColor = isDarkMode
+                                ? "text-gray-300"
+                                : "text-gray-500";
+                              bgColor = isDarkMode
+                                ? "bg-gray-700/80"
+                                : "bg-gray-100";
+                            } else if (
+                              upperStatus === "N/A" ||
+                              upperStatus === "NA"
+                            ) {
+                              statusColor = isDarkMode
+                                ? "text-gray-400"
+                                : "text-gray-600";
+                              bgColor = isDarkMode
+                                ? "bg-gray-700/30"
+                                : "bg-gray-100";
+                            } else if (upperStatus === "BLOCKED") {
+                              statusColor = isDarkMode
+                                ? "text-orange-400"
+                                : "text-orange-600";
+                              bgColor = isDarkMode
+                                ? "bg-orange-900/30"
+                                : "bg-orange-50";
+                            } else if (
+                              upperStatus === "FAILED" ||
+                              upperStatus === "FAIL"
+                            ) {
+                              statusColor = isDarkMode
+                                ? "text-red-400"
+                                : "text-red-600";
+                              bgColor = isDarkMode
+                                ? "bg-red-900/30"
+                                : "bg-red-50";
+                            } else {
+                              statusColor = isDarkMode
+                                ? "text-gray-300"
+                                : "text-gray-700";
+                              bgColor = isDarkMode
+                                ? "bg-gray-700/30"
+                                : "bg-gray-100";
+                            }
+
+                            return (
+                              <div
+                                key={status}
+                                className={`px-3 py-1 rounded-md text-xs font-medium ${statusColor} ${bgColor}`}
+                              >
+                                <span className="font-semibold">{status}:</span>{" "}
+                                <span className="font-bold">{count}</span>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {validationResult?.valid === false && !isValidating && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-red-500 text-xl">✗</span>
+                    <p
+                      className={`text-sm ${
+                        isDarkMode ? "text-red-400" : "text-red-600"
+                      }`}
+                    >
+                      {validationResult.error ||
+                        "Test Execution não encontrada"}
+                    </p>
+                  </div>
+                )}
+                {isValidating && (
+                  <p
+                    className={`mt-2 text-sm ${
+                      isDarkMode ? "text-gray-400" : "text-gray-600"
+                    }`}
+                  >
+                    A validar Test Execution...
+                  </p>
                 )}
               </div>
             </div>
-          )}
 
-          {/* Import Button */}
-          <div className="flex justify-end">
-            <button
-              onClick={handleImport}
-              disabled={
-                isProcessing ||
-                Object.keys(groupedFiles).length === 0 ||
-                !testExecutionKey.trim()
-              }
-              className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-                isProcessing ||
-                Object.keys(groupedFiles).length === 0 ||
-                !testExecutionKey.trim()
-                  ? "bg-gray-400 cursor-not-allowed text-gray-600"
-                  : "bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg transform hover:scale-105"
-              }`}
-            >
-              {isProcessing ? "A processar..." : "Importar para Xray Cloud"}
-            </button>
-          </div>
-          {Object.keys(groupedFiles).length === 0 && files.length > 0 && (
+            {/* File Upload Section */}
             <div
-              className={`text-sm text-center ${
-                isDarkMode ? "text-yellow-400" : "text-yellow-600"
-              }`}
+              className={`${
+                isDarkMode ? "bg-gray-800" : "bg-white"
+              } rounded-xl shadow-lg p-6`}
             >
-              ⚠ Nenhum ficheiro válido encontrado. Verifique se os nomes seguem
-              o formato UAAS-&lt;número&gt;.extensão ou
-              UAAS-&lt;número&gt;-qualquer_coisa.extensão
-            </div>
-          )}
-
-          {/* Result Message */}
-          {result && (
-            <div
-              className={`rounded-xl shadow-lg p-6 ${
-                result.success
-                  ? isDarkMode
-                    ? "bg-green-900 border border-green-700"
-                    : "bg-green-50 border border-green-200"
-                  : isDarkMode
-                  ? "bg-red-900 border border-red-700"
-                  : "bg-red-50 border border-red-200"
-              }`}
-            >
-              <div
-                className={`font-semibold mb-2 ${
-                  result.success
-                    ? isDarkMode
-                      ? "text-green-300"
-                      : "text-green-800"
-                    : isDarkMode
-                    ? "text-red-300"
-                    : "text-red-800"
+              <h3
+                className={`text-xl font-semibold mb-4 ${
+                  isDarkMode ? "text-white" : "text-gray-900"
                 }`}
               >
-                {result.success ? "✓ Sucesso" : "✗ Erro"}
+                Upload de Ficheiros
+              </h3>
+
+              {/* Warning/Error messages in the upload card */}
+              {(() => {
+                // Case 1: Test Execution not validated yet (show until validation is successful)
+                if (!validationResult?.valid) {
+                  return (
+                    <div className="mb-4 p-3 rounded-lg bg-red-900/20 border border-red-500/50">
+                      <div className="flex items-start gap-2">
+                        <span className="text-red-500 text-lg">⚠</span>
+                        <div>
+                          <p
+                            className={`text-sm font-medium ${
+                              isDarkMode ? "text-red-400" : "text-red-600"
+                            }`}
+                          >
+                            Aviso: Test Execution não validada
+                          </p>
+                          <p
+                            className={`text-xs mt-1 ${
+                              isDarkMode ? "text-red-300" : "text-red-700"
+                            }`}
+                          >
+                            Por favor, valide a Test Execution antes de fazer
+                            upload de evidências.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Case 2: Test Execution validated but no tests in EXECUTING
+                if (validationResult?.valid) {
+                  const executingCount =
+                    validationResult.statusSummary?.["EXECUTING"] ||
+                    validationResult.statusSummary?.["IN PROGRESS"] ||
+                    0;
+                  const hasExecutingTests = executingCount > 0;
+
+                  if (!hasExecutingTests) {
+                    return (
+                      <div className="mb-4 p-3 rounded-lg bg-red-900/20 border border-red-500/50">
+                        <div className="flex items-start gap-2">
+                          <span className="text-red-500 text-lg">⚠</span>
+                          <div>
+                            <p
+                              className={`text-sm font-medium ${
+                                isDarkMode ? "text-red-400" : "text-red-600"
+                              }`}
+                            >
+                              Erro: Não existem testes em EXECUTING
+                            </p>
+                            <p
+                              className={`text-xs mt-1 ${
+                                isDarkMode ? "text-red-300" : "text-red-700"
+                              }`}
+                            >
+                              Apenas é possível fazer upload de evidências para
+                              testes que já se encontram em estado EXECUTING.
+                              Por favor, inicie a execução dos testes antes de
+                              fazer upload.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                }
+
+                return null;
+              })()}
+
+              <div className="space-y-4">
+                {/* Upload Mode Toggle and Import Button */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-4">
+                    <span
+                      className={`text-sm font-medium ${
+                        isDarkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
+                    >
+                      Modo de upload:
+                    </span>
+                    <div className="flex space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => setUploadMode("files")}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          uploadMode === "files"
+                            ? "bg-blue-600 text-white"
+                            : isDarkMode
+                            ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}
+                      >
+                        Ficheiros
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUploadMode("folder")}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          uploadMode === "folder"
+                            ? "bg-blue-600 text-white"
+                            : isDarkMode
+                            ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}
+                      >
+                        Pasta
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleImport}
+                    disabled={
+                      isProcessing ||
+                      isValidating ||
+                      Object.keys(groupedFiles).length === 0 ||
+                      !testExecutionKey.trim() ||
+                      !validationResult?.valid ||
+                      (validationResult?.valid &&
+                        (validationResult.statusSummary?.["EXECUTING"] ||
+                          validationResult.statusSummary?.["IN PROGRESS"] ||
+                          0) === 0)
+                    }
+                    className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                      isProcessing ||
+                      isValidating ||
+                      Object.keys(groupedFiles).length === 0 ||
+                      !testExecutionKey.trim() ||
+                      !validationResult?.valid ||
+                      (validationResult?.valid &&
+                        (validationResult.statusSummary?.["EXECUTING"] ||
+                          validationResult.statusSummary?.["IN PROGRESS"] ||
+                          0) === 0)
+                        ? isDarkMode
+                          ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : isDarkMode
+                        ? "bg-green-600 text-white hover:bg-green-700"
+                        : "bg-green-500 text-white hover:bg-green-600"
+                    }`}
+                  >
+                    {isProcessing
+                      ? "A importar..."
+                      : "Importar para Xray Cloud"}
+                  </button>
+                </div>
+
+                {/* Hidden file inputs */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <input
+                  ref={folderInputRef}
+                  type="file"
+                  {...({ webkitdirectory: "" } as any)}
+                  multiple
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+
+                {/* Upload Button */}
+                {(() => {
+                  const isDisabled =
+                    !validationResult?.valid ||
+                    (validationResult?.valid &&
+                      (validationResult.statusSummary?.["EXECUTING"] ||
+                        validationResult.statusSummary?.["IN PROGRESS"] ||
+                        0) === 0);
+
+                  return (
+                    <button
+                      type="button"
+                      onClick={handleUploadClick}
+                      disabled={isDisabled}
+                      className={`w-full px-6 py-4 rounded-lg border-2 border-dashed transition-all duration-200 ${
+                        isDisabled
+                          ? isDarkMode
+                            ? "border-gray-700 bg-gray-800 opacity-50 cursor-not-allowed text-gray-500"
+                            : "border-gray-300 bg-gray-100 opacity-50 cursor-not-allowed text-gray-400"
+                          : isDarkMode
+                          ? "border-gray-600 bg-gray-700 hover:border-blue-500 hover:bg-gray-600 text-white"
+                          : "border-gray-300 bg-gray-50 hover:border-blue-500 hover:bg-blue-50 text-gray-700"
+                      }`}
+                    >
+                      <div className="flex flex-col items-center space-y-2">
+                        <svg
+                          className="w-8 h-8"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                          />
+                        </svg>
+                        <span className="font-medium">
+                          {uploadMode === "folder"
+                            ? "Selecionar Pasta"
+                            : "Selecionar Ficheiros"}
+                        </span>
+                        <span
+                          className={`text-xs ${
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}
+                        >
+                          {uploadMode === "folder"
+                            ? "Selecione uma pasta para fazer upload de todos os ficheiros"
+                            : "Selecione um ou mais ficheiros"}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })()}
+
+                <p
+                  className={`text-sm ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  Os ficheiros devem seguir o formato:
+                  UAAS-&lt;número&gt;.extensão ou
+                  UAAS-&lt;número&gt;-qualquer_coisa.extensão
+                </p>
+
+                {/* Files List - Show all uploaded files */}
+                {files.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-gray-600">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4
+                        className={`text-sm font-semibold ${
+                          isDarkMode ? "text-white" : "text-gray-900"
+                        }`}
+                      >
+                        Ficheiros Selecionados ({files.length})
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFiles([]);
+                          setInvalidFiles([]);
+                          setGroupedFiles({});
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = "";
+                          }
+                          if (folderInputRef.current) {
+                            folderInputRef.current.value = "";
+                          }
+                        }}
+                        className={`text-xs px-3 py-1 rounded ${
+                          isDarkMode
+                            ? "bg-red-600 hover:bg-red-700 text-white"
+                            : "bg-red-100 hover:bg-red-200 text-red-700"
+                        } transition-colors`}
+                      >
+                        Limpar todos
+                      </button>
+                    </div>
+                    <div
+                      className={`max-h-60 overflow-y-auto space-y-2 ${
+                        isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                      } rounded-lg p-4`}
+                    >
+                      {files.map((file, idx) => {
+                        const isValid =
+                          extractTestRunNumber(file.name) !== null;
+                        return (
+                          <div
+                            key={idx}
+                            className={`flex items-center justify-between p-2 rounded ${
+                              isValid
+                                ? isDarkMode
+                                  ? "bg-green-900/30 border border-green-700/50"
+                                  : "bg-green-50 border border-green-200"
+                                : isDarkMode
+                                ? "bg-red-900/30 border border-red-700/50"
+                                : "bg-red-50 border border-red-200"
+                            }`}
+                          >
+                            <div className="flex items-center space-x-2 flex-1 min-w-0">
+                              <svg
+                                className={`w-5 h-5 flex-shrink-0 ${
+                                  isValid
+                                    ? isDarkMode
+                                      ? "text-green-400"
+                                      : "text-green-600"
+                                    : isDarkMode
+                                    ? "text-red-400"
+                                    : "text-red-600"
+                                }`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                {isValid ? (
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                  />
+                                ) : (
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                  />
+                                )}
+                              </svg>
+                              <span
+                                className={`text-sm truncate ${
+                                  isDarkMode ? "text-gray-200" : "text-gray-700"
+                                }`}
+                                title={file.name}
+                              >
+                                {file.name}
+                              </span>
+                            </div>
+                            <span
+                              className={`text-xs ml-2 ${
+                                isValid
+                                  ? isDarkMode
+                                    ? "text-green-400"
+                                    : "text-green-600"
+                                  : isDarkMode
+                                  ? "text-red-400"
+                                  : "text-red-600"
+                              }`}
+                            >
+                              {isValid ? "✓ Válido" : "✗ Inválido"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {invalidFiles.length > 0 && (
+                      <p
+                        className={`text-xs mt-2 ${
+                          isDarkMode ? "text-yellow-400" : "text-yellow-600"
+                        }`}
+                      >
+                        ⚠ {invalidFiles.length} ficheiro(s) não seguem o formato
+                        correto e serão ignorados
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
+            </div>
+
+            {/* Grouped Files Preview */}
+            {Object.keys(groupedFiles).length > 0 && (
               <div
                 className={`${
-                  result.success
-                    ? isDarkMode
-                      ? "text-green-200"
-                      : "text-green-700"
-                    : isDarkMode
-                    ? "text-red-200"
-                    : "text-red-700"
+                  isDarkMode ? "bg-gray-800" : "bg-white"
+                } rounded-xl shadow-lg p-6`}
+              >
+                <h3
+                  className={`text-xl font-semibold mb-4 ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  Ficheiros Agrupados por Test Run
+                </h3>
+                <div className="space-y-4">
+                  {Object.entries(groupedFiles).map(
+                    ([testRunNumber, fileGroup]) => (
+                      <div
+                        key={testRunNumber}
+                        className={`p-4 rounded-lg ${
+                          isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                        }`}
+                      >
+                        <div
+                          className={`font-semibold mb-2 ${
+                            isDarkMode ? "text-blue-400" : "text-blue-600"
+                          }`}
+                        >
+                          Test Run: UAAS-{testRunNumber} ({fileGroup.length}{" "}
+                          ficheiro
+                          {fileGroup.length !== 1 ? "s" : ""})
+                        </div>
+                        <ul className="list-disc list-inside space-y-1">
+                          {fileGroup.map((item, idx) => (
+                            <li
+                              key={idx}
+                              className={`text-sm ${
+                                isDarkMode ? "text-gray-300" : "text-gray-600"
+                              }`}
+                            >
+                              {item.file.name}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Import Button */}
+            <div className="flex justify-end"></div>
+            {Object.keys(groupedFiles).length === 0 && files.length > 0 && (
+              <div
+                className={`text-sm text-center ${
+                  isDarkMode ? "text-yellow-400" : "text-yellow-600"
                 }`}
               >
-                {result.message}
+                ⚠ Nenhum ficheiro válido encontrado. Verifique se os nomes
+                seguem o formato UAAS-&lt;número&gt;.extensão ou
+                UAAS-&lt;número&gt;-qualquer_coisa.extensão
               </div>
-              {result.details && (
-                <details className="mt-4">
-                  <summary
-                    className={`cursor-pointer text-sm ${
-                      result.success
-                        ? isDarkMode
-                          ? "text-green-300"
-                          : "text-green-600"
-                        : isDarkMode
-                        ? "text-red-300"
-                        : "text-red-600"
-                    }`}
-                  >
-                    Ver detalhes
-                  </summary>
-                  <pre
-                    className={`mt-2 p-4 rounded text-xs overflow-auto ${
-                      isDarkMode
-                        ? "bg-gray-900 text-gray-300"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {JSON.stringify(result.details, null, 2)}
-                  </pre>
-                </details>
-              )}
-            </div>
-          )}
+            )}
+
+            {/* Result Message */}
+            {result && (
+              <div
+                className={`rounded-xl shadow-lg p-6 ${
+                  result.success
+                    ? isDarkMode
+                      ? "bg-green-900 border border-green-700"
+                      : "bg-green-50 border border-green-200"
+                    : isDarkMode
+                    ? "bg-red-900 border border-red-700"
+                    : "bg-red-50 border border-red-200"
+                }`}
+              >
+                <div
+                  className={`font-semibold mb-2 ${
+                    result.success
+                      ? isDarkMode
+                        ? "text-green-300"
+                        : "text-green-800"
+                      : isDarkMode
+                      ? "text-red-300"
+                      : "text-red-800"
+                  }`}
+                >
+                  {result.success ? "✓ Sucesso" : "✗ Erro"}
+                </div>
+                <div
+                  className={`${
+                    result.success
+                      ? isDarkMode
+                        ? "text-green-200"
+                        : "text-green-700"
+                      : isDarkMode
+                      ? "text-red-200"
+                      : "text-red-700"
+                  }`}
+                >
+                  {result.message}
+                </div>
+                {result.details && (
+                  <details className="mt-4">
+                    <summary
+                      className={`cursor-pointer text-sm ${
+                        result.success
+                          ? isDarkMode
+                            ? "text-green-300"
+                            : "text-green-600"
+                          : isDarkMode
+                          ? "text-red-300"
+                          : "text-red-600"
+                      }`}
+                    >
+                      Ver detalhes
+                    </summary>
+                    <pre
+                      className={`mt-2 p-4 rounded text-xs overflow-auto ${
+                        isDarkMode
+                          ? "bg-gray-900 text-gray-300"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {JSON.stringify(result.details, null, 2)}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>

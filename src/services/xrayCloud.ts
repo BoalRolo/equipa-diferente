@@ -111,3 +111,114 @@ export async function importExecution(
 
   return await response.json();
 }
+
+export interface TestExecutionValidation {
+  valid: boolean;
+  testExecution?: {
+    key: string;
+    summary: string;
+  };
+  testRuns?: {
+    total: number;
+    results: Array<{
+      id: string;
+      status: string;
+      statusColor: string;
+      statusDescription: string;
+      assigneeId?: string;
+      executedById?: string;
+      startedOn?: string;
+      finishedOn?: string;
+      comment?: string;
+      test: {
+        key: string;
+        summary: string;
+        testType: string;
+      };
+    }>;
+  };
+  testIdsAndStatuses?: Array<{
+    id: string;
+    testKey: string;
+    status: string;
+  }>;
+  statusSummary?: Record<string, number>;
+  error?: string;
+}
+
+/**
+ * Validates a Test Execution and retrieves all its test runs
+ * Uses backend proxy to avoid CORS issues
+ */
+export async function validateTestExecution(
+  xrayBaseUrl: string,
+  token: string,
+  testExecutionKey: string
+): Promise<TestExecutionValidation> {
+  const backendUrl =
+    import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
+  const url = `${backendUrl}/api/xray/validate-test-execution`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      xrayBaseUrl,
+      token,
+      testExecutionKey,
+    }),
+  });
+
+  // Check content type before parsing
+  const contentType = response.headers.get("content-type");
+
+  if (!response.ok) {
+    let errorMessage = `Validation failed: ${response.status} ${response.statusText}`;
+
+    try {
+      if (contentType && contentType.includes("application/json")) {
+        const errorData = await response.json();
+        console.error("❌ Validation failed (JSON):", errorData);
+        errorMessage = errorData.error || errorMessage;
+      } else {
+        const errorText = await response.text();
+        console.error(
+          "❌ Validation failed (non-JSON):",
+          errorText.substring(0, 200)
+        );
+        errorMessage = `Server returned HTML instead of JSON. This usually means the endpoint doesn't exist or the backend isn't running. Status: ${response.status}`;
+      }
+    } catch (parseError: any) {
+      console.error("❌ Error parsing error response:", parseError);
+      errorMessage = `Failed to parse error response: ${parseError.message}`;
+    }
+
+    throw new Error(errorMessage);
+  }
+
+  // Verify we're getting JSON
+  if (!contentType || !contentType.includes("application/json")) {
+    const responseText = await response.text();
+    console.error(
+      "❌ Non-JSON response received:",
+      responseText.substring(0, 200)
+    );
+    throw new Error(
+      "Server returned non-JSON response. Please check if the backend is running correctly and the endpoint exists."
+    );
+  }
+
+  let data;
+  try {
+    data = await response.json();
+  } catch (parseError: any) {
+    console.error("❌ Error parsing JSON response:", parseError);
+    throw new Error(
+      "Failed to parse server response as JSON. The backend may have returned an error page."
+    );
+  }
+
+  return data;
+}
