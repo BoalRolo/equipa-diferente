@@ -117,8 +117,8 @@ const NifGenerator = () => {
                 to="/"
                 className={`inline-flex items-center ${
                   isDarkMode
-                    ? "text-blue-400 hover:text-blue-300"
-                    : "text-blue-600 hover:text-blue-800"
+                    ? "text-yellow-400 hover:text-yellow-300"
+                    : "text-yellow-600 hover:text-yellow-800"
                 }`}
               >
                 ← Voltar à Home
@@ -148,7 +148,7 @@ const NifGenerator = () => {
                 <div className="relative">
                   <button
                     type="button"
-                    className={`relative w-full border rounded-lg pl-3 pr-10 py-3 text-left cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                    className={`relative w-full border rounded-lg pl-3 pr-10 py-3 text-left cursor-pointer focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm ${
                       isDarkMode
                         ? "bg-gray-700 border-gray-600 text-white"
                         : "bg-white border-gray-300 text-gray-900"
@@ -200,7 +200,7 @@ const NifGenerator = () => {
                               country.value === pais
                                 ? isDarkMode
                                   ? "bg-gray-600 text-white"
-                                  : "bg-gray-50 text-blue-600"
+                                  : "bg-gray-50 text-yellow-600"
                                 : isDarkMode
                                 ? "text-gray-200 hover:bg-gray-600"
                                 : "text-gray-900 hover:bg-gray-100"
@@ -228,7 +228,7 @@ const NifGenerator = () => {
                             {country.value === pais && (
                               <span
                                 className={`absolute inset-y-0 right-0 flex items-center pr-4 ${
-                                  isDarkMode ? "text-white" : "text-blue-600"
+                                  isDarkMode ? "text-white" : "text-yellow-600"
                                 }`}
                               >
                                 <svg

@@ -120,8 +120,8 @@ export default function FunctionNumber() {
             to="/"
             className={`inline-flex items-center ${
               isDarkMode
-                ? "text-blue-400 hover:text-blue-300"
-                : "text-blue-600 hover:text-blue-800"
+                ? "text-yellow-400 hover:text-yellow-300"
+                : "text-yellow-600 hover:text-yellow-800"
             }`}
           >
             ← Voltar à Home
@@ -142,7 +142,7 @@ export default function FunctionNumber() {
                   isDarkMode
                     ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400"
                     : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"
-                } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+                } rounded-md focus:outline-none focus:ring-yellow-500 focus:border-yellow-500`}
                 displayValue={(fn: FunctionItem) => fn?.name || query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Digite o nome da função..."
@@ -162,7 +162,7 @@ export default function FunctionNumber() {
                           active
                             ? isDarkMode
                               ? "bg-gray-600 text-white"
-                              : "bg-blue-100 text-blue-700"
+                              : "bg-yellow-100 text-yellow-700"
                             : isDarkMode
                             ? "text-gray-200"
                             : "text-gray-900"

@@ -120,8 +120,8 @@ const DepreciatedCode = () => {
                 to="/"
                 className={`inline-flex items-center ${
                   isDarkMode
-                    ? "text-blue-400 hover:text-blue-300"
-                    : "text-blue-600 hover:text-blue-800"
+                    ? "text-yellow-400 hover:text-yellow-300"
+                    : "text-yellow-600 hover:text-yellow-800"
                 }`}
               >
                 ← Voltar à Home
@@ -169,7 +169,7 @@ const DepreciatedCode = () => {
                         }
                         maxLength={field.maxLength}
                         placeholder={field.placeholder}
-                        className={`w-full px-4 py-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
+                        className={`w-full px-4 py-2 border rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 ${
                           isDarkMode
                             ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
                             : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
@@ -182,7 +182,7 @@ const DepreciatedCode = () => {
                 {/* Generate Button */}
                 <button
                   onClick={calcularCodigo}
-                  className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors text-lg font-medium"
+                  className="w-full bg-yellow-600 text-white px-4 py-3 rounded-lg hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transition-colors text-lg font-medium"
                 >
                   Calcular Código
                 </button>

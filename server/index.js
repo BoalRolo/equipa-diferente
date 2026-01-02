@@ -121,7 +121,7 @@ app.post("/api/xray/validate-test-execution", async (req, res) => {
             query: `query ($jql: String!, $limit: Int!, $trLimit: Int!) {
                 getTestExecutions(jql: $jql, limit: $limit) {
                     results {
-                        jira(fields: ["key", "summary"])
+                        jira(fields: ["key", "summary", "status"])
                         testRuns(limit: $trLimit) {
                             total
                             results {
@@ -165,7 +165,6 @@ app.post("/api/xray/validate-test-execution", async (req, res) => {
 
         if (!initialResponse.ok) {
             const errorText = await initialResponse.text();
-            console.error("❌ GraphQL error:", errorText);
             return res.status(initialResponse.status).json({
                 error: `GraphQL request failed: ${initialResponse.status} ${initialResponse.statusText}`,
                 details: errorText,
@@ -246,9 +245,6 @@ app.post("/api/xray/validate-test-execution", async (req, res) => {
                 });
 
                 if (!paginatedResponse.ok) {
-                    const errorText = await paginatedResponse.text();
-                    console.error(`❌ Error fetching page ${page + 1}:`, paginatedResponse.status);
-                    console.error(`❌ Error details:`, errorText.substring(0, 200));
                     // Try to continue with what we have
                     break;
                 }
@@ -257,7 +253,6 @@ app.post("/api/xray/validate-test-execution", async (req, res) => {
 
                 // Check for GraphQL errors
                 if (paginatedData.errors) {
-                    console.error(`❌ GraphQL errors on page ${page + 1}:`, paginatedData.errors);
                     break;
                 }
 
@@ -283,6 +278,21 @@ app.post("/api/xray/validate-test-execution", async (req, res) => {
 
         const foundTestExecutionKey = jiraData?.key || testExecutionKey;
         const testExecutionSummary = jiraData?.summary || "";
+        // Extract status name from jira fields (status is a Jira field, not a GraphQL field)
+        const testExecutionStatusName = jiraData?.status?.name || jiraData?.status || null;
+        
+        // Validate that Test Execution is in "Em Progresso" status
+        if (testExecutionStatusName !== "Em Progresso") {
+            return res.json({
+                valid: false,
+                error: `A Test Execution deve estar no status "In Progress" para permitir o upload de evidências. Status atual: "${testExecutionStatusName || "Desconhecido"}". Por favor, altere o status da Test Execution para "In Progress" antes de continuar.`,
+                testExecution: {
+                    key: foundTestExecutionKey,
+                    summary: testExecutionSummary,
+                    status: testExecutionStatusName,
+                },
+            });
+        }
 
         // Parse jira fields in test runs and extract IDs and statuses
         const parsedTestRuns = allTestRuns.map((tr) => {
@@ -332,6 +342,7 @@ app.post("/api/xray/validate-test-execution", async (req, res) => {
             testExecution: {
                 key: foundTestExecutionKey,
                 summary: testExecutionSummary,
+                status: testExecutionStatusName,
             },
             testRuns: {
                 total: totalTestRuns,
@@ -341,7 +352,6 @@ app.post("/api/xray/validate-test-execution", async (req, res) => {
             statusSummary: statusSummary,
         });
     } catch (error) {
-        console.error("❌ Validation error:", error);
         res.status(500).json({
             error: "Internal server error",
             message: error.message,

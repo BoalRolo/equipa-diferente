@@ -101,7 +101,7 @@ export default function Header() {
             <h1
               onClick={() => navigate("/")}
               className={`text-3xl font-bold flex items-center ${
-                isDarkMode ? "text-blue-400" : "text-blue-600"
+                isDarkMode ? "text-yellow-400" : "text-yellow-600"
               } cursor-pointer hover:opacity-80 transition-opacity`}
             >
               <img
@@ -166,7 +166,7 @@ export default function Header() {
                       isDarkMode
                         ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
                         : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
-                    } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                    } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
                     displayValue={(tool: Tool) => tool?.name || ""}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="Selecione uma ferramenta..."
@@ -202,7 +202,7 @@ export default function Header() {
                             active
                               ? isDarkMode
                                 ? "bg-gray-600 text-white"
-                                : "bg-blue-100 text-blue-900"
+                                : "bg-yellow-100 text-yellow-900"
                               : isDarkMode
                               ? "text-gray-200"
                               : "text-gray-900"
@@ -226,7 +226,7 @@ export default function Header() {
                             {selected && (
                               <span
                                 className={`absolute inset-y-0 right-0 flex items-center pr-4 ${
-                                  active ? "text-white" : "text-blue-600"
+                                  active ? "text-white" : "text-yellow-600"
                                 }`}
                               >
                                 <svg

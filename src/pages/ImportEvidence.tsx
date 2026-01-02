@@ -303,14 +303,8 @@ export default function ImportEvidence() {
       } else {
         setTestExecutionKey("");
         setValidationResult(validation);
-        console.error("❌ Test Execution not found:", fullKey);
       }
     } catch (error: any) {
-      console.error("❌ Validation error:", error);
-      console.error("❌ Error details:", {
-        message: error.message,
-        stack: error.stack,
-      });
       setTestExecutionKey("");
       setValidationResult({
         valid: false,
@@ -481,10 +475,7 @@ export default function ImportEvidence() {
           ></p>
         </div>
 
-        <div
-          className="max-w-6xl mx-auto px-4 py-8 space-y-6 overflow-y-auto"
-          style={{ maxHeight: "calc(100vh - 200px)" }}
-        >
+        <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
           <div className="max-w-4xl mx-auto space-y-6">
             {/* Test Execution Input */}
             <div
@@ -534,7 +525,7 @@ export default function ImportEvidence() {
                           : validationResult?.valid === true
                           ? "border-green-500"
                           : ""
-                      } focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50`}
+                      } focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:opacity-50`}
                     />
                   </div>
                   <button
@@ -546,8 +537,8 @@ export default function ImportEvidence() {
                           ? "bg-gray-700 text-gray-500 cursor-not-allowed"
                           : "bg-gray-300 text-gray-500 cursor-not-allowed"
                         : isDarkMode
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "bg-blue-500 text-white hover:bg-blue-600"
+                        ? "bg-green-600 text-white hover:bg-green-700"
+                        : "bg-green-500 text-white hover:bg-green-600"
                     }`}
                   >
                     {isValidating ? (
@@ -565,15 +556,29 @@ export default function ImportEvidence() {
                     <div className="flex items-center gap-2">
                       <span className="text-green-500 text-xl">✓</span>
                       <p
-                        className={`text-sm ${
+                        className={`text-sm font-semibold ${
                           isDarkMode ? "text-green-400" : "text-green-600"
                         }`}
                       >
-                        Test Execution válida:{" "}
-                        {validationResult.testExecution?.key} -{" "}
-                        {validationResult.testExecution?.summary}
+                        Test Execution Válida
+                      </p>
+                    </div>
+                    <div
+                      className={`text-sm ml-7 ${
+                        isDarkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
+                    >
+                      <p>
+                        {validationResult.testExecution?.key}
+                        {validationResult.testExecution?.summary && (
+                          <> - {validationResult.testExecution.summary}</>
+                        )}
                         {validationResult.testRuns && (
-                          <span className="ml-2">
+                          <span
+                            className={`ml-2 ${
+                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                            }`}
+                          >
                             ({validationResult.testRuns.total} Test Runs)
                           </span>
                         )}
@@ -817,7 +822,7 @@ export default function ImportEvidence() {
                         onClick={() => setUploadMode("files")}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                           uploadMode === "files"
-                            ? "bg-blue-600 text-white"
+                            ? "bg-yellow-600 text-white"
                             : isDarkMode
                             ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
                             : "bg-gray-200 text-gray-700 hover:bg-gray-300"
@@ -830,7 +835,7 @@ export default function ImportEvidence() {
                         onClick={() => setUploadMode("folder")}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                           uploadMode === "folder"
-                            ? "bg-blue-600 text-white"
+                            ? "bg-yellow-600 text-white"
                             : isDarkMode
                             ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
                             : "bg-gray-200 text-gray-700 hover:bg-gray-300"
@@ -867,8 +872,8 @@ export default function ImportEvidence() {
                           ? "bg-gray-700 text-gray-500 cursor-not-allowed"
                           : "bg-gray-300 text-gray-500 cursor-not-allowed"
                         : isDarkMode
-                        ? "bg-green-600 text-white hover:bg-green-700"
-                        : "bg-green-500 text-white hover:bg-green-600"
+                        ? "bg-yellow-600 text-white hover:bg-yellow-700"
+                        : "bg-yellow-500 text-white hover:bg-yellow-600"
                     }`}
                   >
                     {isProcessing
@@ -914,8 +919,8 @@ export default function ImportEvidence() {
                             ? "border-gray-700 bg-gray-800 opacity-50 cursor-not-allowed text-gray-500"
                             : "border-gray-300 bg-gray-100 opacity-50 cursor-not-allowed text-gray-400"
                           : isDarkMode
-                          ? "border-gray-600 bg-gray-700 hover:border-blue-500 hover:bg-gray-600 text-white"
-                          : "border-gray-300 bg-gray-50 hover:border-blue-500 hover:bg-blue-50 text-gray-700"
+                          ? "border-gray-600 bg-gray-700 hover:border-yellow-500 hover:bg-gray-600 text-white"
+                          : "border-gray-300 bg-gray-50 hover:border-yellow-500 hover:bg-yellow-50 text-gray-700"
                       }`}
                     >
                       <div className="flex flex-col items-center space-y-2">
@@ -1112,7 +1117,7 @@ export default function ImportEvidence() {
                       >
                         <div
                           className={`font-semibold mb-2 ${
-                            isDarkMode ? "text-blue-400" : "text-blue-600"
+                            isDarkMode ? "text-yellow-400" : "text-yellow-600"
                           }`}
                         >
                           Test Run: UAAS-{testRunNumber} ({fileGroup.length}{" "}

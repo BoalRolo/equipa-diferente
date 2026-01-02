@@ -20,7 +20,7 @@ interface Step {
 const syntaxHighlight = (json: string, isDarkMode: boolean) => {
   const colors = {
     string: isDarkMode ? "text-green-400" : "text-green-600",
-    number: isDarkMode ? "text-blue-400" : "text-blue-600",
+    number: isDarkMode ? "text-yellow-400" : "text-yellow-600",
     boolean: isDarkMode ? "text-yellow-400" : "text-yellow-600",
     null: isDarkMode ? "text-red-400" : "text-red-600",
     key: isDarkMode ? "text-purple-400" : "text-purple-600",
@@ -196,7 +196,7 @@ export default function JsonGenerator() {
           isDarkMode
             ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400"
             : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"
-        } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+        } rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500`}
         displayValue={(v: string) => v}
         onChange={(e) => handleChange(field, e.target.value)}
         placeholder={`Enter ${field.toLowerCase()}...`}
@@ -213,7 +213,7 @@ export default function JsonGenerator() {
               value={opt}
               className={({ active }) =>
                 `cursor-pointer select-none py-2 px-4 ${
-                  active ? (isDarkMode ? "bg-gray-700" : "bg-blue-100") : ""
+                  active ? (isDarkMode ? "bg-gray-700" : "bg-yellow-100") : ""
                 }`
               }
             >
@@ -244,8 +244,8 @@ export default function JsonGenerator() {
                 to="/"
                 className={`inline-flex items-center ${
                   isDarkMode
-                    ? "text-blue-400 hover:text-blue-300"
-                    : "text-blue-600 hover:text-blue-800"
+                    ? "text-yellow-400 hover:text-yellow-300"
+                    : "text-yellow-600 hover:text-yellow-800"
                 }`}
               >
                 ← Back to Home
@@ -269,7 +269,7 @@ export default function JsonGenerator() {
                     isDarkMode
                       ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400"
                       : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"
-                  } rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                  } rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500`}
                 />
               </div>
 
@@ -307,7 +307,7 @@ export default function JsonGenerator() {
                 <div className="flex gap-3">
                   <button
                     onClick={addStep}
-                    className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
+                    className="flex-1 bg-yellow-600 text-white py-2 rounded-md hover:bg-yellow-700"
                   >
                     {editingIndex !== null ? "Save Changes" : "Add Step"}
                   </button>
@@ -391,7 +391,7 @@ export default function JsonGenerator() {
                           </button>
                           <button
                             onClick={() => startEditing(i)}
-                            className="p-1 text-blue-600 hover:text-blue-800"
+                            className="p-1 text-yellow-600 hover:text-yellow-800"
                           >
                             <svg
                               className="w-5 h-5"
@@ -463,7 +463,7 @@ export default function JsonGenerator() {
                   </button>
                   <button
                     onClick={copyJSON}
-                    className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
+                    className="flex-1 bg-yellow-600 text-white py-2 rounded-md hover:bg-yellow-700"
                   >
                     {copied ? "Copied!" : "Copy JSON"}
                   </button>

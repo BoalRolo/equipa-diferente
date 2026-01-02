@@ -157,7 +157,9 @@ export default function Home() {
               key={tool.path}
               className={`group relative ${
                 isDarkMode ? "bg-gray-800" : "bg-white"
-              } rounded-xl shadow-lg overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-xl animate-fade-in-up`}
+              } rounded-xl shadow-lg overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-xl animate-fade-in-up border ${
+                isDarkMode ? "border-gray-700" : "border-gray-200"
+              }`}
               style={{ animationDelay: `${index * 150}ms` }}
               onMouseEnter={() => setHoveredTool(tool.path)}
               onMouseLeave={() => setHoveredTool(null)}
@@ -167,7 +169,7 @@ export default function Home() {
                 <div className="flex items-start space-x-4">
                   <div
                     className={`${
-                      isDarkMode ? "text-blue-400" : "text-blue-600"
+                      isDarkMode ? "text-yellow-400" : "text-yellow-600"
                     } transform transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6`}
                   >
                     {tool.icon}
@@ -176,7 +178,7 @@ export default function Home() {
                     <h3
                       className={`text-xl font-semibold mb-2 ${
                         isDarkMode ? "text-white" : "text-gray-900"
-                      } group-hover:text-blue-500 transition-colors duration-300`}
+                      } group-hover:text-yellow-500 transition-colors duration-300`}
                     >
                       {tool.name}
                     </h3>
@@ -191,7 +193,7 @@ export default function Home() {
                 </div>
                 <div
                   className={`absolute bottom-0 left-0 w-full h-1 transform scale-x-0 transition-transform duration-300 ${
-                    isDarkMode ? "bg-blue-400" : "bg-blue-600"
+                    isDarkMode ? "bg-yellow-400" : "bg-yellow-600"
                   } ${hoveredTool === tool.path ? "scale-x-100" : ""}`}
                 />
               </div>

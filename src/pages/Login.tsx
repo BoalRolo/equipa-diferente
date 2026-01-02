@@ -143,7 +143,7 @@ export default function Login() {
                     isDarkMode
                       ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400"
                       : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"
-                  } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all duration-200`}
+                  } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-lg transition-all duration-200`}
                   placeholder="4 dígitos"
                   value={userId}
                   onChange={handleChange}
@@ -190,7 +190,7 @@ export default function Login() {
                     isDarkMode
                       ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400"
                       : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"
-                  } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all duration-200`}
+                  } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-lg transition-all duration-200`}
                   placeholder="6 ou 8 dígitos"
                   value={password}
                   onChange={handleChange}
@@ -237,7 +237,7 @@ export default function Login() {
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transform transition-all duration-200 hover:scale-105"
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-yellow-500 hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transform transition-all duration-200 hover:scale-105"
               >
                 Entrar
               </button>
