@@ -3,15 +3,17 @@ interface User {
   password: string;
   name: string;
   darkMode?: boolean;
+  xrayAccountId?: string; // Xray/Jira account ID (e.g., "712020:7351335a-fbae-470f-aca6-6bb415b1ec63")
 }
 
-// Mock users with their 4-digit IDs and 6 or 8-digit passwords
+// Mock users with their 4 or 6-digit IDs and 6 or 8-digit passwords
 export const mockUsers: User[] = [
   {
     userId: "3694",
     password: "369400",
     name: "Administrator",
-    darkMode: true, // Administrator prefers dark mode
+    darkMode: true,
+    xrayAccountId: "712020:7351335a-fbae-470f-aca6-6bb415b1ec63",
   },
   {
     userId: "3119",
@@ -20,21 +22,15 @@ export const mockUsers: User[] = [
     darkMode: false, // João prefers light mode
   },
   {
-    userId: "5678",
-    password: "567890",
-    name: "Maria Santos",
+    userId: "820159",
+    password: "477455",
+    name: "Mario Fonseca",
     darkMode: false,
   },
   {
-    userId: "9012",
-    password: "901234",
-    name: "Pedro Costa",
-    darkMode: false,
-  },
-  {
-    userId: "1111",
-    password: "11223344",
-    name: "Test User",
+    userId: "220529",
+    password: "112233",
+    name: "Edite Pontes",
     darkMode: false,
   },
 ];

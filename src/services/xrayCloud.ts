@@ -13,9 +13,10 @@ export interface XrayEvidence {
 export interface XrayTest {
   testKey: string;
   status: "EXECUTING" | "FAILED" | "PASSED";
-  start: string;
+  start?: string; // Optional - omit to preserve original startedOn
   finish: string;
   evidences: XrayEvidence[];
+  executedBy?: string; // Xray/Jira account ID of the user executing the test
 }
 
 export interface XrayImportRequest {
@@ -106,6 +107,45 @@ export async function importExecution(
     throw new Error(
       errorData.error ||
         `Import failed: ${response.status} ${response.statusText}`
+    );
+  }
+
+  return await response.json();
+}
+
+/**
+ * Updates test runs using GraphQL mutations
+ * This allows better control over timer stopping
+ */
+export async function updateTestRunsViaGraphQL(
+  xrayBaseUrl: string,
+  token: string,
+  testRunUpdates: Array<{
+    testRunId: string;
+    status: string;
+  }>
+): Promise<any> {
+  const backendUrl =
+    import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
+  const url = `${backendUrl}/api/xray/update-test-runs-graphql`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      xrayBaseUrl,
+      token,
+      testRunUpdates,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(
+      errorData.error ||
+        `Failed to update test runs: ${response.status} ${response.statusText}`
     );
   }
 

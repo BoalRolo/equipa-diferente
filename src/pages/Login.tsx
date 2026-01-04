@@ -16,7 +16,7 @@ export default function Login() {
     // Only allow digits
     if (/^\d*$/.test(value)) {
       if (
-        (name === "userId" && value.length <= 4) ||
+        (name === "userId" && value.length <= 6) ||
         (name === "password" && value.length <= 8)
       ) {
         if (name === "userId") {
@@ -31,8 +31,8 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (userId.length !== 4) {
-      setError("O ID do usuário deve ter 4 dígitos");
+    if (userId.length !== 4 && userId.length !== 6) {
+      setError("O ID do usuário deve ter 4 ou 6 dígitos");
       return;
     }
 
@@ -137,14 +137,14 @@ export default function Login() {
                   type="text"
                   inputMode="numeric"
                   pattern="\d*"
-                  maxLength={4}
+                  maxLength={6}
                   required
                   className={`appearance-none block w-full pl-10 pr-3 py-3 border ${
                     isDarkMode
                       ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400"
                       : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"
                   } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-lg transition-all duration-200`}
-                  placeholder="4 dígitos"
+                  placeholder="4 ou 6 dígitos"
                   value={userId}
                   onChange={handleChange}
                 />

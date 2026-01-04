@@ -5,6 +5,7 @@ import {
   authenticateXray,
   importExecution,
   validateTestExecution,
+  updateTestRunsViaGraphQL,
   XrayTest,
   XrayEvidence,
   XrayImportRequest,
@@ -21,12 +22,24 @@ interface GroupedFiles {
   [testRunNumber: string]: FileWithTestRun[];
 }
 
+interface IgnoredFile {
+  file: File;
+  reason:
+    | "invalid_format"
+    | "test_not_found"
+    | "test_not_executing"
+    | "system_file";
+  reasonText: string;
+  testRunNumber?: string;
+}
+
 export default function ImportEvidence() {
   const { isDarkMode } = useDarkMode();
   const [testExecutionKey, setTestExecutionKey] = useState("");
   const [testExecutionNumber, setTestExecutionNumber] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [invalidFiles, setInvalidFiles] = useState<File[]>([]);
+  const [ignoredFiles, setIgnoredFiles] = useState<IgnoredFile[]>([]);
   const [groupedFiles, setGroupedFiles] = useState<GroupedFiles>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
@@ -35,33 +48,52 @@ export default function ImportEvidence() {
   const [executingTestRunIds, setExecutingTestRunIds] = useState<Set<string>>(
     new Set()
   );
+  const [testRunInfoMap, setTestRunInfoMap] = useState<
+    Map<string, { id: string; startedOn?: string }>
+  >(new Map());
   const [result, setResult] = useState<{
     success: boolean;
     message: string;
     details?: any;
   } | null>(null);
+  const [progress, setProgress] = useState<{
+    current: number;
+    total: number;
+    message: string;
+    stage: "rest" | "graphql" | "complete";
+    completed: string[];
+    inProgress: string[];
+    failed: Array<{ testRun: string; error: string }>;
+    animatedProgress: number; // For smooth animation
+    dynamicMessage: string; // Rotating messages
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
-  const [uploadMode, setUploadMode] = useState<"files" | "folder">("files");
 
-  // Get Xray Cloud configuration from environment variables
+  useEffect(() => {
+    if (progress) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [progress]);
+  const [uploadMode, setUploadMode] = useState<"files" | "folder">("folder");
+  const [expandedTestRuns, setExpandedTestRuns] = useState<Set<string>>(
+    new Set()
+  );
+
   const xrayBaseUrl = import.meta.env.VITE_XRAY_BASE_URL || "";
   const clientId = import.meta.env.VITE_XRAY_CLIENT_ID || "";
   const clientSecret = import.meta.env.VITE_XRAY_CLIENT_SECRET || "";
 
-  /**
-   * Extracts Test Run number from filename
-   * Format: UAAS-<number>.extension or UAAS-<number>-anything.extension
-   */
   const extractTestRunNumber = (filename: string): string | null => {
-    // Matches: UAAS-123.ext or UAAS-123-anything.ext
     const match = filename.match(/^UAAS-(\d+)(?:-.*)?\./);
     return match ? match[1] : null;
   };
 
-  /**
-   * Converts a File to base64 string
-   */
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -74,9 +106,6 @@ export default function ImportEvidence() {
     });
   };
 
-  /**
-   * Gets MIME type from file extension
-   */
   const getContentType = (filename: string): string => {
     const extension = filename.split(".").pop()?.toLowerCase();
     const mimeTypes: { [key: string]: string } = {
@@ -93,10 +122,6 @@ export default function ImportEvidence() {
     return mimeTypes[extension || ""] || "application/octet-stream";
   };
 
-  /**
-   * Processes uploaded files and groups them by Test Run
-   * Only allows files for Test Runs that are in EXECUTING status
-   */
   const processFiles = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
 
@@ -105,37 +130,79 @@ export default function ImportEvidence() {
     const processedFiles: File[] = [];
     const invalid: File[] = [];
     const notExecutingFiles: File[] = [];
+    const ignored: IgnoredFile[] = [];
 
-    // Check if we have executing test run IDs
+    const systemFiles = [
+      ".DS_Store",
+      "Thumbs.db",
+      ".gitkeep",
+      ".gitignore",
+      "desktop.ini",
+    ];
+
     const hasExecutingTests = executingTestRunIds.size > 0;
 
-    // Create a map of test run number to test run ID for quick lookup
     const testRunNumberToIdMap = new Map<string, string>();
+    const testRunNumberToInfoMap = new Map<
+      string,
+      { id: string; startedOn?: string }
+    >();
     if (validationResult?.testRuns?.results) {
       validationResult.testRuns.results.forEach((tr) => {
-        // Extract test run number from test key (e.g., "UAAS-12345" -> "12345")
         const testKey = tr.test?.key || "";
         const match = testKey.match(/UAAS-(\d+)/);
         if (match) {
-          testRunNumberToIdMap.set(match[1], tr.id);
+          const testRunNumber = match[1];
+          testRunNumberToIdMap.set(testRunNumber, tr.id);
+          testRunNumberToInfoMap.set(testRunNumber, {
+            id: tr.id,
+            startedOn: tr.startedOn,
+          });
         }
       });
     }
 
     fileArray.forEach((file) => {
-      const testRunNumber = extractTestRunNumber(file.name);
+      const fileName =
+        file.name.split("/").pop() || file.name.split("\\").pop() || file.name;
+
+      const isSystemFile = systemFiles.some(
+        (sysFile) =>
+          fileName === sysFile ||
+          fileName.toLowerCase() === sysFile.toLowerCase()
+      );
+
+      if (isSystemFile) {
+        return;
+      }
+
+      const testRunNumber = extractTestRunNumber(fileName);
 
       if (!testRunNumber) {
+        ignored.push({
+          file,
+          reason: "invalid_format",
+          reasonText:
+            "Formato de nome incorreto. Deve seguir: UAAS-<número>.extensão ou UAAS-<número>-qualquer_coisa.extensão",
+        });
         invalid.push(file);
         return;
       }
 
-      // If we have executing test runs, validate that this test run is in EXECUTING
-      if (hasExecutingTests) {
-        const testRunId = testRunNumberToIdMap.get(testRunNumber);
+      const testRunId = testRunNumberToIdMap.get(testRunNumber);
 
-        if (testRunId && executingTestRunIds.has(testRunId)) {
-          // This test run is in EXECUTING, allow the file
+      if (!testRunId) {
+        ignored.push({
+          file,
+          reason: "test_not_found",
+          reasonText: `O Test Run UAAS-${testRunNumber} não existe nesta Test Execution`,
+          testRunNumber,
+        });
+        return;
+      }
+
+      if (hasExecutingTests) {
+        if (executingTestRunIds.has(testRunId)) {
           const testKey = `UAAS-${testRunNumber}`;
           if (!grouped[testRunNumber]) {
             grouped[testRunNumber] = [];
@@ -147,21 +214,32 @@ export default function ImportEvidence() {
           });
           processedFiles.push(file);
         } else {
-          // This test run is not in EXECUTING
+          ignored.push({
+            file,
+            reason: "test_not_executing",
+            reasonText: `O Test Run UAAS-${testRunNumber} não está em estado EXECUTING`,
+            testRunNumber,
+          });
           notExecutingFiles.push(file);
         }
       } else {
-        // If no executing tests, don't allow any files
+        ignored.push({
+          file,
+          reason: "test_not_executing",
+          reasonText: `O Test Run UAAS-${testRunNumber} não está em estado EXECUTING`,
+          testRunNumber,
+        });
         notExecutingFiles.push(file);
       }
     });
 
-    setFiles(processedFiles); // Only store valid files
+    setFiles(processedFiles);
     setInvalidFiles(invalid);
+    setIgnoredFiles(ignored);
     setGroupedFiles(grouped);
+    setTestRunInfoMap(testRunNumberToInfoMap);
     setResult(null);
 
-    // Show error if there are files for non-executing test runs
     if (notExecutingFiles.length > 0) {
       setResult({
         success: false,
@@ -170,25 +248,19 @@ export default function ImportEvidence() {
     }
   };
 
-  /**
-   * Handles file/folder input change
-   */
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Check if Test Execution is validated
     if (!validationResult?.valid) {
       setResult({
         success: false,
         message:
           "Por favor, valide a Test Execution antes de fazer upload de evidências.",
       });
-      // Clear the input
       if (e.target) {
         e.target.value = "";
       }
       return;
     }
 
-    // Check if there are tests in EXECUTING status
     const executingCount =
       validationResult?.statusSummary?.["EXECUTING"] ||
       validationResult?.statusSummary?.["IN PROGRESS"] ||
@@ -201,7 +273,6 @@ export default function ImportEvidence() {
         message:
           "Não é possível fazer upload. Apenas testes em estado EXECUTING podem receber evidências.",
       });
-      // Clear the input
       if (e.target) {
         e.target.value = "";
       }
@@ -211,11 +282,7 @@ export default function ImportEvidence() {
     processFiles(e.target.files);
   };
 
-  /**
-   * Triggers file or folder selection based on current mode
-   */
   const handleUploadClick = () => {
-    // Check if Test Execution is validated
     if (!validationResult?.valid) {
       setResult({
         success: false,
@@ -225,7 +292,6 @@ export default function ImportEvidence() {
       return;
     }
 
-    // Check if there are tests in EXECUTING status
     const executingCount =
       validationResult?.statusSummary?.["EXECUTING"] ||
       validationResult?.statusSummary?.["IN PROGRESS"] ||
@@ -248,9 +314,6 @@ export default function ImportEvidence() {
     }
   };
 
-  /**
-   * Validates Test Execution when the number changes
-   */
   const validateTestExecutionKey = async (number: string) => {
     if (!number.trim()) {
       setValidationResult(null);
@@ -258,7 +321,6 @@ export default function ImportEvidence() {
       return;
     }
 
-    // Only validate if we have credentials
     if (!xrayBaseUrl || !clientId || !clientSecret) {
       return;
     }
@@ -268,11 +330,8 @@ export default function ImportEvidence() {
     setResult(null);
 
     try {
-      // Step 1: Authenticate
       const token = await authenticateXray(xrayBaseUrl, clientId, clientSecret);
 
-      // Step 2: Validate Test Execution
-      // Clean the number - remove any "UAAS-" prefix and non-numeric characters
       const cleanNumber = number
         .trim()
         .replace(/^UAAS-?/i, "")
@@ -289,7 +348,6 @@ export default function ImportEvidence() {
         setTestExecutionKey(fullKey);
         setValidationResult(validation);
 
-        // Extract Test Run IDs that are in EXECUTING status
         const executingIds = new Set<string>();
         if (validation.testRuns?.results) {
           validation.testRuns.results.forEach((tr) => {
@@ -300,6 +358,19 @@ export default function ImportEvidence() {
           });
         }
         setExecutingTestRunIds(executingIds);
+
+        setFiles([]);
+        setInvalidFiles([]);
+        setIgnoredFiles([]);
+        setGroupedFiles({});
+        setExpandedTestRuns(new Set());
+        setTestRunInfoMap(new Map());
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        if (folderInputRef.current) {
+          folderInputRef.current.value = "";
+        }
       } else {
         setTestExecutionKey("");
         setValidationResult(validation);
@@ -317,26 +388,21 @@ export default function ImportEvidence() {
     }
   };
 
-  /**
-   * Handles Test Execution number input change
-   */
   const handleTestExecutionNumberChange = (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
-    // First remove "UAAS-" prefix if user pastes it, then remove any non-numeric characters
-    let number = e.target.value.replace(/^UAAS-?/i, ""); // Remove UAAS- prefix first
-    number = number.replace(/[^0-9]/g, ""); // Then remove any non-numeric characters
+    let number = e.target.value.replace(/^UAAS-?/i, "");
+    number = number.replace(/[^0-9]/g, "");
     setTestExecutionNumber(number);
     setValidationResult(null);
     setTestExecutionKey("");
     setFiles([]);
+    setInvalidFiles([]);
+    setIgnoredFiles([]);
     setGroupedFiles({});
     setExecutingTestRunIds(new Set());
   };
 
-  /**
-   * Handles manual validation button click
-   */
   const handleValidateClick = () => {
     if (!testExecutionNumber.trim()) {
       setResult({
@@ -348,9 +414,6 @@ export default function ImportEvidence() {
     validateTestExecutionKey(testExecutionNumber);
   };
 
-  /**
-   * Converts grouped files to Xray format and imports to Xray Cloud
-   */
   const handleImport = async () => {
     if (!testExecutionKey.trim() || !validationResult?.valid) {
       setResult({
@@ -384,11 +447,29 @@ export default function ImportEvidence() {
     setResult(null);
 
     try {
-      // Step 1: Authenticate
       const token = await authenticateXray(xrayBaseUrl, clientId, clientSecret);
 
-      // Step 2: Prepare test data with evidences
-      const tests: XrayTest[] = [];
+      const userStr = localStorage.getItem("user");
+      let executedBy: string | undefined;
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          if (user.xrayAccountId) {
+            executedBy = user.xrayAccountId;
+          }
+        } catch (e) {}
+      }
+      const testRunDataMap = new Map<
+        string,
+        {
+          testRunNumber: string;
+          testRunId?: string;
+          testData: XrayTest;
+          finishedOn: string;
+          startedOn?: string;
+        }
+      >();
+      const now = new Date();
 
       for (const [testRunNumber, fileGroup] of Object.entries(groupedFiles)) {
         const evidences: XrayEvidence[] = [];
@@ -402,36 +483,286 @@ export default function ImportEvidence() {
           });
         }
 
-        // Use current date/time for start and finish
-        const now = new Date();
-        const finish = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes later
+        const testRunInfo = testRunInfoMap.get(testRunNumber);
+        const originalStart = testRunInfo?.startedOn;
+        const testRunId = testRunInfo?.id;
 
-        tests.push({
+        const status = "PASSED";
+        const finish = now.toISOString();
+
+        const testData: XrayTest = {
           testKey: `UAAS-${testRunNumber}`,
-          status: "PASSED", // Default status, can be changed if needed
-          start: now.toISOString(),
-          finish: finish.toISOString(),
+          status: status,
+          start: originalStart || now.toISOString(),
+          finish: finish,
           evidences,
+        };
+
+        testRunDataMap.set(testRunNumber, {
+          testRunNumber,
+          testRunId,
+          testData,
+          finishedOn: finish,
+          startedOn: originalStart,
         });
       }
 
-      // Step 3: Import execution
-      const importData: XrayImportRequest = {
-        testExecutionKey: testExecutionKey.trim(),
-        tests,
-      };
+      const totalTestRuns = testRunDataMap.size;
+      const completed: string[] = [];
+      const failed: Array<{ testRun: string; error: string }> = [];
 
-      const response = await importExecution(xrayBaseUrl, token, importData);
+      const BATCH_SIZE = 10;
+      const testRunEntries = Array.from(testRunDataMap.entries());
+      const batches: Array<typeof testRunEntries> = [];
 
-      setResult({
-        success: true,
-        message: `Importação realizada com sucesso!`,
-        details: response,
+      for (let i = 0; i < testRunEntries.length; i += BATCH_SIZE) {
+        batches.push(testRunEntries.slice(i, i + BATCH_SIZE));
+      }
+
+      const dynamicMessages = [
+        "Testes a serem atualizados no Xray",
+        "Pode demorar alguns segundos",
+        "A processar evidências...",
+        "A enviar ficheiros...",
+        "A atualizar status...",
+        "Quase terminado...",
+      ];
+
+      let messageIndex = 0;
+      setProgress({
+        current: 0,
+        total: totalTestRuns,
+        message: `${totalTestRuns} testes a serem atualizados`,
+        stage: "rest",
+        completed: [],
+        inProgress: [],
+        failed: [],
+        animatedProgress: 0,
+        dynamicMessage: dynamicMessages[0],
       });
 
-      // Clear files after successful import
+      const messageInterval = setInterval(() => {
+        setProgress((prev) => {
+          if (!prev || prev.stage === "complete") {
+            clearInterval(messageInterval);
+            return prev;
+          }
+          messageIndex = (messageIndex + 1) % dynamicMessages.length;
+          return {
+            ...prev,
+            dynamicMessage: dynamicMessages[messageIndex],
+          };
+        });
+      }, 4500);
+
+      let animatedValue = 0;
+      const animationInterval = setInterval(() => {
+        setProgress((prev) => {
+          if (!prev || prev.stage === "complete") {
+            clearInterval(animationInterval);
+            return prev;
+          }
+          const realProgress = (prev.current / prev.total) * 100;
+          if (animatedValue < realProgress - 5) {
+            animatedValue = Math.max(
+              animatedValue,
+              Math.min(animatedValue + 2, realProgress - 5)
+            );
+          } else {
+            animatedValue = Math.max(
+              animatedValue,
+              Math.min(animatedValue + 0.3, 95)
+            );
+          }
+          return {
+            ...prev,
+            animatedProgress: Math.max(
+              prev.animatedProgress || 0,
+              animatedValue
+            ),
+          };
+        });
+      }, 200);
+
+      for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
+        const batch = batches[batchIdx];
+        const batchTestRuns = batch.map(
+          ([testRunNumber]) => `UAAS-${testRunNumber}`
+        );
+
+        const restProgress = (completed.length / totalTestRuns) * 100;
+        setProgress((prev) =>
+          prev
+            ? {
+                ...prev,
+                current: completed.length,
+                total: totalTestRuns,
+                message: `${totalTestRuns} testes a serem atualizados`,
+                stage: "rest",
+                completed: [...completed],
+                inProgress: [],
+                failed: [...failed],
+                animatedProgress: Math.max(
+                  prev.animatedProgress || 0,
+                  restProgress
+                ),
+              }
+            : null
+        );
+
+        const batchTests: XrayTest[] = batch.map(([_, data]) => data.testData);
+        const batchSuccessful: typeof batch = [];
+
+        try {
+          const importData: XrayImportRequest = {
+            testExecutionKey: testExecutionKey.trim(),
+            tests: batchTests,
+          };
+
+          await importExecution(xrayBaseUrl, token, importData);
+
+          batch.forEach((entry) => {
+            batchSuccessful.push(entry);
+          });
+        } catch (error: any) {
+          batch.forEach(([testRunNumber]) => {
+            failed.push({
+              testRun: `UAAS-${testRunNumber}`,
+              error: error.message || "Falha ao enviar via REST API",
+            });
+          });
+          continue;
+        }
+
+        if (batchSuccessful.length > 0) {
+          const statusUpdates: Array<{
+            testRunId: string;
+            status: string;
+          }> = [];
+
+          batchSuccessful.forEach(([_, data]) => {
+            if (data.testRunId) {
+              statusUpdates.push({
+                testRunId: data.testRunId,
+                status: "PASSED",
+              });
+            }
+          });
+
+          if (statusUpdates.length > 0) {
+            const graphqlProgress = (completed.length / totalTestRuns) * 100;
+            setProgress((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    current: completed.length,
+                    total: totalTestRuns,
+                    message: `${totalTestRuns} testes a serem atualizados`,
+                    stage: "graphql",
+                    completed: [...completed],
+                    inProgress: [],
+                    failed: [...failed],
+                    animatedProgress: Math.max(
+                      prev.animatedProgress || 0,
+                      graphqlProgress
+                    ),
+                  }
+                : null
+            );
+
+            try {
+              const graphqlResponse = await updateTestRunsViaGraphQL(
+                xrayBaseUrl,
+                token,
+                statusUpdates
+              );
+
+              const graphqlErrors = graphqlResponse.errors || [];
+
+              batchSuccessful.forEach(([testRunNumber, data]) => {
+                const hasGraphQLError = graphqlErrors.some(
+                  (error: any) => error.testRunId === data.testRunId
+                );
+
+                if (!hasGraphQLError) {
+                  completed.push(`UAAS-${testRunNumber}`);
+                } else {
+                  const error = graphqlErrors.find(
+                    (e: any) => e.testRunId === data.testRunId
+                  );
+                  failed.push({
+                    testRun: `UAAS-${testRunNumber}`,
+                    error: `Status não atualizado via GraphQL: ${
+                      error?.error || "Erro desconhecido"
+                    }`,
+                  });
+                }
+              });
+            } catch (graphqlError: any) {
+              batchSuccessful.forEach(([testRunNumber]) => {
+                failed.push({
+                  testRun: `UAAS-${testRunNumber}`,
+                  error: `GraphQL falhou: ${
+                    graphqlError.message || "Erro desconhecido"
+                  }`,
+                });
+              });
+            }
+          } else {
+            batchSuccessful.forEach(([testRunNumber]) => {
+              completed.push(`UAAS-${testRunNumber}`);
+            });
+          }
+        }
+
+        const batchProgress = (completed.length / totalTestRuns) * 100;
+        setProgress((prev) =>
+          prev
+            ? {
+                ...prev,
+                current: completed.length,
+                total: totalTestRuns,
+                message: `${totalTestRuns} testes a serem atualizados`,
+                stage: batchIdx < batches.length - 1 ? "rest" : "graphql",
+                completed: [...completed],
+                inProgress: [],
+                failed: [...failed],
+                animatedProgress: Math.max(
+                  prev.animatedProgress || 0,
+                  batchProgress
+                ),
+              }
+            : null
+        );
+      }
+
+      const allSuccessful = failed.length === 0;
+      setProgress({
+        current: totalTestRuns,
+        total: totalTestRuns,
+        message: `${totalTestRuns} testes atualizados`,
+        stage: "complete",
+        completed: [...completed],
+        inProgress: [],
+        failed: [...failed],
+        animatedProgress: 100,
+        dynamicMessage: "",
+      });
+      setResult({
+        success: allSuccessful,
+        message: allSuccessful
+          ? `Importação realizada com sucesso! ${completed.length} test run(s) atualizado(s).`
+          : `Importação parcial: ${completed.length} sucesso, ${failed.length} falha(s).`,
+        details: {
+          completed: completed.length,
+          failed: failed.length,
+          failures: failed.length > 0 ? failed : undefined,
+        },
+      });
+
       setFiles([]);
       setInvalidFiles([]);
+      setIgnoredFiles([]);
       setGroupedFiles({});
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -466,7 +797,7 @@ export default function ImportEvidence() {
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
-            Import Evidence
+            Upload de Evidências
           </h2>
           <p
             className={`text-xl ${
@@ -502,9 +833,10 @@ export default function ImportEvidence() {
                   <div className="relative flex-1">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                       <span
-                        className={`text-sm font-medium ${
-                          isDarkMode ? "text-gray-300" : "text-gray-700"
+                        className={`text-base font-normal ${
+                          isDarkMode ? "text-white" : "text-gray-900"
                         }`}
+                        style={{ letterSpacing: "0.025em" }}
                       >
                         UAAS-
                       </span>
@@ -513,9 +845,19 @@ export default function ImportEvidence() {
                       type="text"
                       value={testExecutionNumber}
                       onChange={handleTestExecutionNumberChange}
+                      onKeyDown={(e) => {
+                        if (
+                          e.key === "Enter" &&
+                          !isValidating &&
+                          testExecutionNumber.trim()
+                        ) {
+                          e.preventDefault();
+                          handleValidateClick();
+                        }
+                      }}
                       placeholder="Test Execution Number"
                       disabled={isValidating}
-                      className={`w-full pl-16 pr-4 py-2 rounded-lg border ${
+                      className={`w-full pl-16 pr-4 py-2 rounded-lg border text-base ${
                         isDarkMode
                           ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
                           : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
@@ -525,7 +867,8 @@ export default function ImportEvidence() {
                           : validationResult?.valid === true
                           ? "border-green-500"
                           : ""
-                      } focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:opacity-50`}
+                      } focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:opacity-50 select-text`}
+                      style={{ userSelect: "text", WebkitUserSelect: "text" }}
                     />
                   </div>
                   <button
@@ -587,7 +930,6 @@ export default function ImportEvidence() {
                     {validationResult.statusSummary && (
                       <div className="flex flex-wrap gap-3 ml-7">
                         {(() => {
-                          // Define order priority for statuses
                           const statusOrder: Record<string, number> = {
                             PASSED: 1,
                             EXECUTING: 2,
@@ -601,7 +943,6 @@ export default function ImportEvidence() {
                             NA: 6,
                           };
 
-                          // Sort statuses by priority
                           const sortedStatuses = Object.entries(
                             validationResult.statusSummary
                           ).sort(([statusA], [statusB]) => {
@@ -613,7 +954,6 @@ export default function ImportEvidence() {
                           });
 
                           return sortedStatuses.map(([status, count]) => {
-                            // Determine color based on status
                             let statusColor = "";
                             let bgColor = "";
                             const upperStatus = status.toUpperCase();
@@ -734,9 +1074,7 @@ export default function ImportEvidence() {
                 Upload de Ficheiros
               </h3>
 
-              {/* Warning/Error messages in the upload card */}
               {(() => {
-                // Case 1: Test Execution not validated yet (show until validation is successful)
                 if (!validationResult?.valid) {
                   return (
                     <div className="mb-4 p-3 rounded-lg bg-red-900/20 border border-red-500/50">
@@ -764,7 +1102,6 @@ export default function ImportEvidence() {
                   );
                 }
 
-                // Case 2: Test Execution validated but no tests in EXECUTING
                 if (validationResult?.valid) {
                   const executingCount =
                     validationResult.statusSummary?.["EXECUTING"] ||
@@ -819,19 +1156,6 @@ export default function ImportEvidence() {
                     <div className="flex space-x-2">
                       <button
                         type="button"
-                        onClick={() => setUploadMode("files")}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          uploadMode === "files"
-                            ? "bg-yellow-600 text-white"
-                            : isDarkMode
-                            ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                        }`}
-                      >
-                        Ficheiros
-                      </button>
-                      <button
-                        type="button"
                         onClick={() => setUploadMode("folder")}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                           uploadMode === "folder"
@@ -842,6 +1166,19 @@ export default function ImportEvidence() {
                         }`}
                       >
                         Pasta
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUploadMode("files")}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          uploadMode === "files"
+                            ? "bg-yellow-600 text-white"
+                            : isDarkMode
+                            ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}
+                      >
+                        Ficheiros
                       </button>
                     </div>
                   </div>
@@ -872,13 +1209,11 @@ export default function ImportEvidence() {
                           ? "bg-gray-700 text-gray-500 cursor-not-allowed"
                           : "bg-gray-300 text-gray-500 cursor-not-allowed"
                         : isDarkMode
-                        ? "bg-yellow-600 text-white hover:bg-yellow-700"
-                        : "bg-yellow-500 text-white hover:bg-yellow-600"
+                        ? "bg-green-600 text-white hover:bg-green-700"
+                        : "bg-green-500 text-white hover:bg-green-600"
                     }`}
                   >
-                    {isProcessing
-                      ? "A importar..."
-                      : "Importar para Xray Cloud"}
+                    {isProcessing ? "A importar..." : "Importar para o XRAY"}
                   </button>
                 </div>
 
@@ -966,23 +1301,42 @@ export default function ImportEvidence() {
                   UAAS-&lt;número&gt;-qualquer_coisa.extensão
                 </p>
 
-                {/* Files List - Show all uploaded files */}
-                {files.length > 0 && (
+                {/* Test Runs List - Show grouped by Test Run */}
+                {(Object.keys(groupedFiles).length > 0 ||
+                  ignoredFiles.length > 0) && (
                   <div className="mt-6 pt-6 border-t border-gray-600">
                     <div className="flex items-center justify-between mb-4">
-                      <h4
-                        className={`text-sm font-semibold ${
-                          isDarkMode ? "text-white" : "text-gray-900"
-                        }`}
-                      >
-                        Ficheiros Selecionados ({files.length})
-                      </h4>
+                      <div className="flex items-center gap-3">
+                        <h4
+                          className={`text-xs font-semibold ${
+                            isDarkMode ? "text-white" : "text-gray-900"
+                          }`}
+                        >
+                          Testes Selecionados (
+                          {Object.keys(groupedFiles).length} testes,{" "}
+                          {files.length} ficheiros)
+                        </h4>
+                        {ignoredFiles.length > 0 && (
+                          <span
+                            className={`text-xs px-2 py-1 rounded ${
+                              isDarkMode
+                                ? "bg-red-900/50 text-red-300 border border-red-700"
+                                : "bg-red-100 text-red-700 border border-red-300"
+                            }`}
+                          >
+                            ⚠ {ignoredFiles.length} ignorado
+                            {ignoredFiles.length !== 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
                           setFiles([]);
                           setInvalidFiles([]);
+                          setIgnoredFiles([]);
                           setGroupedFiles({});
+                          setExpandedTestRuns(new Set());
                           if (fileInputRef.current) {
                             fileInputRef.current.value = "";
                           }
@@ -999,149 +1353,265 @@ export default function ImportEvidence() {
                         Limpar todos
                       </button>
                     </div>
-                    <div
-                      className={`max-h-60 overflow-y-auto space-y-2 ${
-                        isDarkMode ? "bg-gray-700" : "bg-gray-50"
-                      } rounded-lg p-4`}
-                    >
-                      {files.map((file, idx) => {
-                        const isValid =
-                          extractTestRunNumber(file.name) !== null;
-                        return (
+                    <div className="relative">
+                      {/* Scrollbar indicator - always visible on the right */}
+                      <div
+                        className={`absolute right-0 top-0 bottom-0 w-3 ${
+                          isDarkMode ? "bg-gray-600/30" : "bg-gray-300/30"
+                        } rounded-r-lg pointer-events-none z-10`}
+                        style={{
+                          background: isDarkMode
+                            ? "linear-gradient(to right, transparent 0%, rgba(75, 85, 99, 0.3) 100%)"
+                            : "linear-gradient(to right, transparent 0%, rgba(209, 213, 219, 0.3) 100%)",
+                        }}
+                      />
+                      <div
+                        ref={(el) => {
+                          if (el) {
+                            const hasScroll = el.scrollHeight > el.clientHeight;
+                            if (hasScroll) {
+                              el.scrollTop = 1;
+                              setTimeout(() => {
+                                el.scrollTop = 0;
+                              }, 10);
+                            }
+                          }
+                        }}
+                        className={`max-h-72 space-y-2 ${
+                          isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                        } rounded-lg p-3 always-visible-scrollbar ${
+                          !isDarkMode ? "light" : ""
+                        }`}
+                        style={{
+                          overflowY: "scroll",
+                          overflowX: "hidden",
+                          scrollbarWidth: "thin",
+                          scrollbarColor: isDarkMode
+                            ? "#6b7280 #374151"
+                            : "#9ca3af #f3f4f6",
+                        }}
+                      >
+                        {/* Ignored Files Section - Show first */}
+                        {ignoredFiles.length > 0 && (
                           <div
-                            key={idx}
-                            className={`flex items-center justify-between p-2 rounded ${
-                              isValid
-                                ? isDarkMode
-                                  ? "bg-green-900/30 border border-green-700/50"
-                                  : "bg-green-50 border border-green-200"
-                                : isDarkMode
-                                ? "bg-red-900/30 border border-red-700/50"
-                                : "bg-red-50 border border-red-200"
-                            }`}
+                            className={`${
+                              isDarkMode
+                                ? "bg-gray-800 border border-red-700/50"
+                                : "bg-white border border-red-300"
+                            } rounded-lg overflow-hidden`}
                           >
-                            <div className="flex items-center space-x-2 flex-1 min-w-0">
-                              <svg
-                                className={`w-5 h-5 flex-shrink-0 ${
-                                  isValid
-                                    ? isDarkMode
-                                      ? "text-green-400"
-                                      : "text-green-600"
-                                    : isDarkMode
-                                    ? "text-red-400"
-                                    : "text-red-600"
-                                }`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                {isValid ? (
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                  />
-                                ) : (
+                            <div className="p-2">
+                              <div className="flex items-center gap-2">
+                                <svg
+                                  className={`w-4 h-4 ${
+                                    isDarkMode ? "text-red-400" : "text-red-600"
+                                  }`}
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
                                   <path
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     strokeWidth={2}
                                     d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
                                   />
-                                )}
-                              </svg>
-                              <span
-                                className={`text-sm truncate ${
-                                  isDarkMode ? "text-gray-200" : "text-gray-700"
-                                }`}
-                                title={file.name}
-                              >
-                                {file.name}
-                              </span>
+                                </svg>
+                                <span
+                                  className={`text-xs font-semibold ${
+                                    isDarkMode ? "text-red-400" : "text-red-600"
+                                  }`}
+                                >
+                                  Ficheiros Ignorados ({ignoredFiles.length})
+                                </span>
+                              </div>
+                              <div className="mt-2 space-y-1">
+                                {ignoredFiles.map((ignoredFile, idx) => {
+                                  const displayName =
+                                    ignoredFile.file.name.split("/").pop() ||
+                                    ignoredFile.file.name.split("\\").pop() ||
+                                    ignoredFile.file.name;
+
+                                  const getReasonIcon = () => {
+                                    switch (ignoredFile.reason) {
+                                      case "invalid_format":
+                                        return "📝";
+                                      case "test_not_found":
+                                        return "🔍";
+                                      case "test_not_executing":
+                                        return "⏸️";
+                                      default:
+                                        return "⚠️";
+                                    }
+                                  };
+
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className={`flex items-center gap-2 p-1.5 rounded ${
+                                        isDarkMode
+                                          ? "bg-gray-900/50"
+                                          : "bg-gray-50"
+                                      }`}
+                                    >
+                                      <span className="text-xs">
+                                        {getReasonIcon()}
+                                      </span>
+                                      <span
+                                        className={`text-xs font-mono ${
+                                          isDarkMode
+                                            ? "text-gray-300"
+                                            : "text-gray-700"
+                                        }`}
+                                      >
+                                        {displayName}
+                                        <span
+                                          className={`ml-2 ${
+                                            isDarkMode
+                                              ? "text-red-400"
+                                              : "text-red-600"
+                                          }`}
+                                        >
+                                          ({ignoredFile.reasonText})
+                                        </span>
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
-                            <span
-                              className={`text-xs ml-2 ${
-                                isValid
-                                  ? isDarkMode
-                                    ? "text-green-400"
-                                    : "text-green-600"
-                                  : isDarkMode
-                                  ? "text-red-400"
-                                  : "text-red-600"
-                              }`}
-                            >
-                              {isValid ? "✓ Válido" : "✗ Inválido"}
-                            </span>
                           </div>
-                        );
-                      })}
+                        )}
+
+                        {/* Valid Test Runs */}
+                        {Object.entries(groupedFiles).map(
+                          ([testRunNumber, fileGroup]) => {
+                            const isExpanded =
+                              expandedTestRuns.has(testRunNumber);
+                            return (
+                              <div
+                                key={testRunNumber}
+                                className={`${
+                                  isDarkMode
+                                    ? "bg-gray-800 border border-green-600/50"
+                                    : "bg-white border border-green-400/50"
+                                } rounded-lg overflow-hidden`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newExpanded = new Set(
+                                      expandedTestRuns
+                                    );
+                                    if (isExpanded) {
+                                      newExpanded.delete(testRunNumber);
+                                    } else {
+                                      newExpanded.add(testRunNumber);
+                                    }
+                                    setExpandedTestRuns(newExpanded);
+                                  }}
+                                  className={`w-full flex items-center justify-between p-2.5 hover:${
+                                    isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                                  } transition-colors`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <svg
+                                      className={`w-4 h-4 transition-transform ${
+                                        isExpanded ? "rotate-90" : ""
+                                      } ${
+                                        isDarkMode
+                                          ? "text-gray-400"
+                                          : "text-gray-600"
+                                      }`}
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 5l7 7-7 7"
+                                      />
+                                    </svg>
+                                    <span
+                                      className={`text-xs font-semibold ${
+                                        isDarkMode
+                                          ? "text-yellow-400"
+                                          : "text-yellow-600"
+                                      }`}
+                                    >
+                                      UAAS-{testRunNumber}
+                                    </span>
+                                    <span
+                                      className={`text-xs ${
+                                        isDarkMode
+                                          ? "text-gray-400"
+                                          : "text-gray-500"
+                                      }`}
+                                    >
+                                      ({fileGroup.length} ficheiro
+                                      {fileGroup.length !== 1 ? "s" : ""})
+                                    </span>
+                                  </div>
+                                </button>
+                                {isExpanded && (
+                                  <div
+                                    className={`border-t ${
+                                      isDarkMode
+                                        ? "border-gray-700"
+                                        : "border-gray-200"
+                                    } p-2.5 space-y-1`}
+                                  >
+                                    {fileGroup.map((item, idx) => (
+                                      <div
+                                        key={idx}
+                                        className={`flex items-center gap-2 p-1.5 rounded ${
+                                          isDarkMode
+                                            ? "bg-gray-900/50"
+                                            : "bg-gray-50"
+                                        }`}
+                                      >
+                                        <svg
+                                          className={`w-3.5 h-3.5 ${
+                                            isDarkMode
+                                              ? "text-green-400"
+                                              : "text-green-600"
+                                          }`}
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                          />
+                                        </svg>
+                                        <span
+                                          className={`text-xs ${
+                                            isDarkMode
+                                              ? "text-gray-300"
+                                              : "text-gray-700"
+                                          }`}
+                                        >
+                                          {item.file.name}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                        )}
+                      </div>
                     </div>
-                    {invalidFiles.length > 0 && (
-                      <p
-                        className={`text-xs mt-2 ${
-                          isDarkMode ? "text-yellow-400" : "text-yellow-600"
-                        }`}
-                      >
-                        ⚠ {invalidFiles.length} ficheiro(s) não seguem o formato
-                        correto e serão ignorados
-                      </p>
-                    )}
                   </div>
                 )}
               </div>
             </div>
-
-            {/* Grouped Files Preview */}
-            {Object.keys(groupedFiles).length > 0 && (
-              <div
-                className={`${
-                  isDarkMode ? "bg-gray-800" : "bg-white"
-                } rounded-xl shadow-lg p-6`}
-              >
-                <h3
-                  className={`text-xl font-semibold mb-4 ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  Ficheiros Agrupados por Test Run
-                </h3>
-                <div className="space-y-4">
-                  {Object.entries(groupedFiles).map(
-                    ([testRunNumber, fileGroup]) => (
-                      <div
-                        key={testRunNumber}
-                        className={`p-4 rounded-lg ${
-                          isDarkMode ? "bg-gray-700" : "bg-gray-50"
-                        }`}
-                      >
-                        <div
-                          className={`font-semibold mb-2 ${
-                            isDarkMode ? "text-yellow-400" : "text-yellow-600"
-                          }`}
-                        >
-                          Test Run: UAAS-{testRunNumber} ({fileGroup.length}{" "}
-                          ficheiro
-                          {fileGroup.length !== 1 ? "s" : ""})
-                        </div>
-                        <ul className="list-disc list-inside space-y-1">
-                          {fileGroup.map((item, idx) => (
-                            <li
-                              key={idx}
-                              className={`text-sm ${
-                                isDarkMode ? "text-gray-300" : "text-gray-600"
-                              }`}
-                            >
-                              {item.file.name}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )
-                  )}
-                </div>
-              </div>
-            )}
 
             {/* Import Button */}
             <div className="flex justify-end"></div>
@@ -1157,71 +1627,131 @@ export default function ImportEvidence() {
               </div>
             )}
 
-            {/* Result Message */}
-            {result && (
+            {/* Progress Modal */}
+            {progress && (
               <div
-                className={`rounded-xl shadow-lg p-6 ${
-                  result.success
-                    ? isDarkMode
-                      ? "bg-green-900 border border-green-700"
-                      : "bg-green-50 border border-green-200"
-                    : isDarkMode
-                    ? "bg-red-900 border border-red-700"
-                    : "bg-red-50 border border-red-200"
-                }`}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+                style={{
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  overflow: "hidden",
+                  pointerEvents: "auto",
+                }}
               >
                 <div
-                  className={`font-semibold mb-2 ${
-                    result.success
-                      ? isDarkMode
-                        ? "text-green-300"
-                        : "text-green-800"
-                      : isDarkMode
-                      ? "text-red-300"
-                      : "text-red-800"
+                  className={`rounded-xl shadow-2xl p-6 w-96 ${
+                    isDarkMode ? "bg-gray-800" : "bg-white"
                   }`}
+                  style={{
+                    position: "relative",
+                    isolation: "isolate",
+                  }}
                 >
-                  {result.success ? "✓ Sucesso" : "✗ Erro"}
-                </div>
-                <div
-                  className={`${
-                    result.success
-                      ? isDarkMode
-                        ? "text-green-200"
-                        : "text-green-700"
-                      : isDarkMode
-                      ? "text-red-200"
-                      : "text-red-700"
-                  }`}
-                >
-                  {result.message}
-                </div>
-                {result.details && (
-                  <details className="mt-4">
-                    <summary
-                      className={`cursor-pointer text-sm ${
-                        result.success
-                          ? isDarkMode
-                            ? "text-green-300"
-                            : "text-green-600"
-                          : isDarkMode
-                          ? "text-red-300"
-                          : "text-red-600"
-                      }`}
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-4 relative">
+                      <h3
+                        className={`text-lg font-semibold ${
+                          isDarkMode ? "text-white" : "text-gray-900"
+                        }`}
+                      >
+                        {progress.message}
+                      </h3>
+                      {progress.stage !== "complete" && (
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-orange-500 border-t-transparent"></div>
+                      )}
+                      {progress.stage === "complete" && (
+                        <button
+                          onClick={() => {
+                            setProgress(null);
+                            setFiles([]);
+                            setInvalidFiles([]);
+                            setIgnoredFiles([]);
+                            setGroupedFiles({});
+                            setTestExecutionKey("");
+                            setTestExecutionNumber("");
+                            setValidationResult(null);
+                            setExecutingTestRunIds(new Set());
+                            setResult(null);
+                            setExpandedTestRuns(new Set());
+                            setTestRunInfoMap(new Map());
+                            if (fileInputRef.current) {
+                              fileInputRef.current.value = "";
+                            }
+                            if (folderInputRef.current) {
+                              folderInputRef.current.value = "";
+                            }
+                          }}
+                          className={`w-6 h-6 flex items-center justify-center rounded-full hover:bg-opacity-20 transition-colors ${
+                            isDarkMode
+                              ? "text-red-400 hover:bg-red-600"
+                              : "text-red-500 hover:bg-red-100"
+                          }`}
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                    <div
+                      className="w-full bg-gray-200 rounded-full h-4 overflow-hidden relative mb-3"
+                      style={{ contain: "layout style paint" }}
                     >
-                      Ver detalhes
-                    </summary>
-                    <pre
-                      className={`mt-2 p-4 rounded text-xs overflow-auto ${
-                        isDarkMode
-                          ? "bg-gray-900 text-gray-300"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {JSON.stringify(result.details, null, 2)}
-                    </pre>
-                  </details>
-                )}
+                      <div
+                        className={`h-full transition-all duration-500 ease-out ${
+                          progress.stage === "complete"
+                            ? "bg-green-500"
+                            : "bg-orange-500"
+                        }`}
+                        style={{
+                          width: `${Math.min(progress.animatedProgress, 100)}%`,
+                          willChange: "width",
+                          transform: "translateZ(0)",
+                          backfaceVisibility: "hidden",
+                        }}
+                      />
+                    </div>
+                    {progress.stage !== "complete" &&
+                      progress.dynamicMessage && (
+                        <p
+                          className={`text-sm text-center ${
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}
+                        >
+                          {progress.dynamicMessage}
+                        </p>
+                      )}
+                    {progress.stage === "complete" && testExecutionKey && (
+                      <div className="text-center mt-2">
+                        <a
+                          href={`https://ecom4isi.atlassian.net/browse/${testExecutionKey}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`text-sm font-medium underline hover:no-underline transition-all ${
+                            isDarkMode
+                              ? "text-blue-400 hover:text-blue-300"
+                              : "text-blue-600 hover:text-blue-700"
+                          }`}
+                        >
+                          Ver Test Execution
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

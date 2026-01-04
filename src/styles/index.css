@@ -2,14 +2,127 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Always visible scrollbar - Force visibility (macOS workaround) */
+.always-visible-scrollbar {
+  /* Firefox - force scrollbar to always be visible */
+  scrollbar-width: thin;
+  scrollbar-color: #6b7280 #374151;
+  overflow-y: scroll !important;
+  overflow-x: hidden;
+  /* Force scrollbar to always show on macOS */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* WebKit browsers (Chrome, Safari, Edge) - Force scrollbar visibility */
+/* Override macOS auto-hide behavior */
+.always-visible-scrollbar::-webkit-scrollbar {
+  width: 12px !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  /* Force visibility on macOS */
+  -webkit-overflow-scrolling: touch;
+}
+
+.always-visible-scrollbar::-webkit-scrollbar-track {
+  background: #374151 !important;
+  border-radius: 6px;
+  -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+  /* Ensure track is always visible */
+  display: block !important;
+  visibility: visible !important;
+}
+
+.always-visible-scrollbar::-webkit-scrollbar-thumb {
+  background: #6b7280 !important;
+  border-radius: 6px;
+  -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.5);
+  min-height: 30px;
+  border: 2px solid #374151;
+  /* Force thumb visibility */
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.always-visible-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af !important;
+}
+
+.always-visible-scrollbar::-webkit-scrollbar-thumb:active {
+  background: #d1d5db !important;
+}
+
+/* Light mode scrollbar */
+.always-visible-scrollbar.light {
+  scrollbar-color: #9ca3af #f3f4f6 !important;
+}
+
+.always-visible-scrollbar.light::-webkit-scrollbar-track {
+  background: #f3f4f6 !important;
+  -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.1);
+  display: block !important;
+  visibility: visible !important;
+}
+
+.always-visible-scrollbar.light::-webkit-scrollbar-thumb {
+  background: #9ca3af !important;
+  -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+  border: 2px solid #f3f4f6;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.always-visible-scrollbar.light::-webkit-scrollbar-thumb:hover {
+  background: #6b7280 !important;
+}
+
+.always-visible-scrollbar.light::-webkit-scrollbar-thumb:active {
+  background: #4b5563 !important;
+}
+
+/* Force scrollbar visibility on macOS Safari/Chrome */
+@supports (-webkit-appearance: none) {
+  .always-visible-scrollbar {
+    overflow-y: scroll !important;
+  }
+
+  .always-visible-scrollbar::-webkit-scrollbar {
+    -webkit-appearance: none !important;
+    width: 12px !important;
+  }
+
+  .always-visible-scrollbar::-webkit-scrollbar:vertical {
+    width: 12px !important;
+  }
+}
+
 /* Prevent text selection highlighting */
-input,
 button,
 [role="combobox"] {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
+}
+
+/* Allow text selection in input fields */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+textarea {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
 }
 
 /* Improve input appearance in dark mode */
@@ -19,8 +132,27 @@ button,
   color: white !important;
 }
 
-/* Fix input highlight color */
-input::selection,
+/* Fix input highlight color - allow visible selection */
+input[type="text"]::selection,
+input[type="number"]::selection,
+input[type="email"]::selection,
+input[type="password"]::selection,
+textarea::selection {
+  background-color: rgba(59, 130, 246, 0.5); /* blue-500 with opacity */
+  color: inherit;
+}
+
+/* Dark mode selection */
+.dark input[type="text"]::selection,
+.dark input[type="number"]::selection,
+.dark input[type="email"]::selection,
+.dark input[type="password"]::selection,
+.dark textarea::selection {
+  background-color: rgba(96, 165, 250, 0.5); /* blue-400 with opacity */
+  color: inherit;
+}
+
+/* Keep transparent for combobox */
 [role="combobox"]::selection {
   background-color: transparent;
 }

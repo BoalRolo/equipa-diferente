@@ -72,6 +72,9 @@ app.post("/api/xray/import", async (req, res) => {
             });
         }
 
+        // Log the import data being sent for debugging
+        console.log("Sending to Xray:", JSON.stringify(importData, null, 2));
+
         const response = await fetch(`${xrayBaseUrl}/api/v2/import/execution`, {
             method: "POST",
             headers: {
@@ -83,6 +86,7 @@ app.post("/api/xray/import", async (req, res) => {
 
         if (!response.ok) {
             const errorText = await response.text();
+            console.error("Xray import error:", response.status, errorText);
             return res.status(response.status).json({
                 error: `Import failed: ${response.status} ${response.statusText}`,
                 details: errorText,
@@ -93,6 +97,296 @@ app.post("/api/xray/import", async (req, res) => {
         res.json(data);
     } catch (error) {
         console.error("Import error:", error);
+        res.status(500).json({
+            error: "Internal server error",
+            message: error.message,
+        });
+    }
+});
+
+// Endpoint para atualizar Test Runs via GraphQL
+app.post("/api/xray/update-test-runs-graphql", async (req, res) => {
+    try {
+        const { xrayBaseUrl, token, testRunUpdates } = req.body;
+
+        if (!xrayBaseUrl || !token || !testRunUpdates || !Array.isArray(testRunUpdates)) {
+            return res.status(400).json({
+                error: "Missing required parameters: xrayBaseUrl, token, testRunUpdates (array)",
+            });
+        }
+
+        // First, try to introspect the schema to find available mutations
+        const schemaIntrospection = {
+            query: `query {
+                __type(name: "Mutation") {
+                    fields {
+                        name
+                        description
+                        args {
+                            name
+                            type {
+                                name
+                                kind
+                                ofType {
+                                    name
+                                }
+                            }
+                        }
+                    }
+                }
+            }`,
+        };
+
+        // Try common mutation names for updating test runs
+        const possibleMutations = [
+            "updateTestRun",
+            "updateTestRunStatus",
+            "updateTestExecution",
+            "updateTestRunResult",
+        ];
+
+        let mutationInfo = {};
+        try {
+            const introResponse = await fetch(`${xrayBaseUrl}/api/v2/graphql`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(schemaIntrospection),
+            });
+
+            if (introResponse.ok) {
+                const introData = await introResponse.json();
+                if (introData.data && introData.data.__type) {
+                    const testRunMutations = introData.data.__type.fields
+                        .filter((f) =>
+                            f.name.toLowerCase().includes("testrun") ||
+                            f.name.toLowerCase().includes("testrun")
+                        );
+
+                    // Store mutation info with their arguments
+                    for (const mutation of testRunMutations) {
+                        mutationInfo[mutation.name] = {
+                            args: mutation.args.map((a) => ({
+                                name: a.name,
+                                type: a.type.name || (a.type.ofType && a.type.ofType.name) || "Unknown",
+                            })),
+                        };
+                    }
+                    console.log("Available test run mutations with args:", JSON.stringify(mutationInfo, null, 2));
+                }
+            }
+        } catch (error) {
+            console.log("Introspection failed, using default mutations");
+        }
+
+        // Update test run status using GraphQL mutations
+        // Note: Status is already updated via REST API, but GraphQL update may be needed to stop timer
+        // Try to do all updates in a SINGLE GraphQL query using aliases (much more efficient!)
+        const results = [];
+        const errors = [];
+
+        if (testRunUpdates.length === 0) {
+            return res.json({
+                success: true,
+                results: [],
+                summary: { total: 0, successful: 0, failed: 0 },
+            });
+        }
+
+        const statusMutationName = "updateTestRunStatus";
+        const statusMutationArgs = mutationInfo[statusMutationName]?.args || [];
+
+        // Find the correct argument names
+        const idArg = statusMutationArgs.find(a =>
+            a.name === "testRunId" ||
+            a.name === "id" ||
+            a.name === "testRun" ||
+            a.name.toLowerCase().includes("testrun") ||
+            a.name.toLowerCase().includes("id")
+        );
+        const statusArg = statusMutationArgs.find(a =>
+            a.name === "status" ||
+            a.name.toLowerCase().includes("status")
+        );
+
+        if (!idArg || !statusArg) {
+            console.warn(`updateTestRunStatus arguments not found. Available:`, statusMutationArgs.map(a => a.name));
+            return res.json({
+                success: false,
+                errors: testRunUpdates.map(u => ({
+                    testRunId: u.testRunId,
+                    error: "updateTestRunStatus mutation not available",
+                })),
+                summary: {
+                    total: testRunUpdates.length,
+                    successful: 0,
+                    failed: testRunUpdates.length,
+                },
+            });
+        }
+
+        // Try to do all updates in a single GraphQL query using aliases
+        try {
+            // Build mutation with aliases for each test run
+            const mutationParts = [];
+            const variables = {};
+
+            testRunUpdates.forEach((update, index) => {
+                const alias = `update${index}`;
+                const idVar = `${idArg.name}${index}`;
+                const statusVar = `status${index}`;
+
+                mutationParts.push(
+                    `${alias}: ${statusMutationName}(${idArg.name}: $${idVar}, status: $${statusVar})`
+                );
+
+                variables[idVar] = update.testRunId;
+                variables[statusVar] = update.status;
+            });
+
+            const variableDefs = testRunUpdates.map((_, i) =>
+                `$${idArg.name}${i}: String!, $status${i}: String!`
+            ).join(", ");
+
+            const combinedMutation = {
+                query: `mutation (${variableDefs}) {
+                    ${mutationParts.join("\n                    ")}
+                }`,
+                variables,
+            };
+
+            console.log(`Attempting to update ${testRunUpdates.length} test runs in a single GraphQL query`);
+
+            const response = await fetch(`${xrayBaseUrl}/api/v2/graphql`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(combinedMutation),
+            });
+
+            const responseText = await response.text();
+            console.log(`Combined GraphQL response:`, response.status, responseText.substring(0, 500));
+
+            if (response.ok) {
+                const data = JSON.parse(responseText);
+
+                if (data.errors) {
+                    console.warn(`GraphQL returned errors:`, data.errors);
+                    // If there are errors, mark all as failed
+                    testRunUpdates.forEach((update) => {
+                        errors.push({
+                            testRunId: update.testRunId,
+                            error: `GraphQL error: ${JSON.stringify(data.errors)}`,
+                        });
+                    });
+                } else if (data.data) {
+                    // Check each result
+                    testRunUpdates.forEach((update, index) => {
+                        const alias = `update${index}`;
+                        const result = data.data[alias];
+
+                        if (result) {
+                            results.push({
+                                testRunId: update.testRunId,
+                                success: true,
+                            });
+                            console.log(`✓ Test run ${update.testRunId} updated successfully`);
+                        } else {
+                            errors.push({
+                                testRunId: update.testRunId,
+                                error: "No result returned from GraphQL",
+                            });
+                        }
+                    });
+                }
+            } else {
+                // If single query fails, fallback to individual requests
+                console.warn(`Single GraphQL query failed (HTTP ${response.status}), falling back to individual requests`);
+
+                // Fallback: process individually
+                for (const update of testRunUpdates) {
+                    try {
+                        const individualMutation = {
+                            query: `mutation ($${idArg.name}: String!, $status: String!) {
+                                ${statusMutationName}(
+                                    ${idArg.name}: $${idArg.name}
+                                    status: $status
+                                )
+                            }`,
+                            variables: {
+                                [idArg.name]: update.testRunId,
+                                status: update.status,
+                            },
+                        };
+
+                        const individualResponse = await fetch(`${xrayBaseUrl}/api/v2/graphql`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify(individualMutation),
+                        });
+
+                        const individualResponseText = await individualResponse.text();
+
+                        if (individualResponse.ok) {
+                            const individualData = JSON.parse(individualResponseText);
+                            if (individualData.errors) {
+                                errors.push({
+                                    testRunId: update.testRunId,
+                                    error: `GraphQL error: ${JSON.stringify(individualData.errors)}`,
+                                });
+                            } else if (individualData.data) {
+                                results.push({
+                                    testRunId: update.testRunId,
+                                    success: true,
+                                });
+                            }
+                        } else {
+                            errors.push({
+                                testRunId: update.testRunId,
+                                error: `HTTP ${individualResponse.status}: ${individualResponseText.substring(0, 200)}`,
+                            });
+                        }
+                    } catch (error) {
+                        errors.push({
+                            testRunId: update.testRunId,
+                            error: error.message,
+                        });
+                    }
+                }
+            }
+        } catch (error) {
+            console.error(`GraphQL update error:`, error.message);
+            // Mark all as failed
+            testRunUpdates.forEach((update) => {
+                errors.push({
+                    testRunId: update.testRunId,
+                    error: error.message,
+                });
+            });
+        }
+
+        const response = {
+            success: results.length > 0,
+            results,
+            errors: errors.length > 0 ? errors : undefined,
+            summary: {
+                total: testRunUpdates.length,
+                successful: results.length,
+                failed: errors.length,
+            },
+        };
+
+        console.log("GraphQL timer update summary:", JSON.stringify(response, null, 2));
+
+        res.json(response);
+    } catch (error) {
         res.status(500).json({
             error: "Internal server error",
             message: error.message,
@@ -280,7 +574,7 @@ app.post("/api/xray/validate-test-execution", async (req, res) => {
         const testExecutionSummary = jiraData?.summary || "";
         // Extract status name from jira fields (status is a Jira field, not a GraphQL field)
         const testExecutionStatusName = jiraData?.status?.name || jiraData?.status || null;
-        
+
         // Validate that Test Execution is in "Em Progresso" status
         if (testExecutionStatusName !== "Em Progresso") {
             return res.json({
