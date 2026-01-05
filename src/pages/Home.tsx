@@ -12,48 +12,6 @@ interface Tool {
 
 const tools: Tool[] = [
   {
-    name: "JSON Step Generator",
-    description:
-      "Gerador de passos JSON para documentação de testes. Crie, edite e exporte passos de teste em formato JSON.",
-    path: "/json-generator",
-    icon: (
-      <svg
-        className="w-8 h-8"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M4 6h16M4 12h16m-7 6h7"
-        />
-      </svg>
-    ),
-  },
-  {
-    name: "Gerador de Código Depreciado",
-    description:
-      "Gere códigos de depreciação para produtos com base no EAN, preço, motivo e validade.",
-    path: "/codigo-depreciado",
-    icon: (
-      <svg
-        className="w-8 h-8"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
-        />
-      </svg>
-    ),
-  },
-  {
     name: "Gerador de NIF",
     description:
       "Gere números de identificação fiscal válidos para diferentes países: Portugal, Espanha, França e Alemanha.",
@@ -96,7 +54,7 @@ const tools: Tool[] = [
     ),
   },
   {
-    name: "Import Evidence",
+    name: "Upload de Evidências",
     description:
       "Importe evidências para o Xray Cloud. Faça upload de documentos e organize suas evidências de forma eficiente.",
     path: "/import-evidence",
@@ -133,25 +91,7 @@ export default function Home() {
     >
       <Header />
       <main className="max-w-7xl mx-auto px-4 py-12">
-        <div className="text-center space-y-4 animate-fade-in mb-16">
-          <h2
-            className={`text-4xl font-bold ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            Bem-vindo às nossas ferramentas
-          </h2>
-          <p
-            className={`text-xl ${
-              isDarkMode ? "text-gray-300" : "text-gray-600"
-            } animate-fade-in-up max-w-2xl mx-auto`}
-          >
-            Escolha uma das nossas ferramentas especializadas para ajudar no seu
-            trabalho diário
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
           {tools.map((tool, index) => (
             <div
               key={tool.path}
@@ -165,27 +105,27 @@ export default function Home() {
               onMouseLeave={() => setHoveredTool(null)}
               onClick={() => navigate(tool.path)}
             >
-              <div className="p-6 h-full cursor-pointer">
-                <div className="flex items-start space-x-4">
+              <div className="p-10 h-full min-h-[400px] cursor-pointer flex flex-col">
+                <div className="flex flex-col items-center text-center flex-1 justify-center">
                   <div
                     className={`${
                       isDarkMode ? "text-yellow-400" : "text-yellow-600"
-                    } transform transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6`}
+                    } transform transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6 mb-6`}
                   >
-                    {tool.icon}
+                    <div className="w-16 h-16">{tool.icon}</div>
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 flex flex-col justify-center">
                     <h3
-                      className={`text-xl font-semibold mb-2 ${
+                      className={`text-3xl font-semibold mb-6 ${
                         isDarkMode ? "text-white" : "text-gray-900"
                       } group-hover:text-yellow-500 transition-colors duration-300`}
                     >
                       {tool.name}
                     </h3>
                     <p
-                      className={`${
+                      className={`text-lg flex-1 ${
                         isDarkMode ? "text-gray-300" : "text-gray-600"
-                      } transition-colors duration-300`}
+                      } transition-colors duration-300 leading-relaxed max-w-md mx-auto`}
                     >
                       {tool.description}
                     </p>

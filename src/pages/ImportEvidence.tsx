@@ -792,13 +792,6 @@ export default function ImportEvidence() {
       <Header />
       <main className="max-w-7xl mx-auto px-4 py-12">
         <div className="text-center space-y-4 animate-fade-in mb-8">
-          <h2
-            className={`text-4xl font-bold ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            Upload de Evidências
-          </h2>
           <p
             className={`text-xl ${
               isDarkMode ? "text-gray-300" : "text-gray-600"

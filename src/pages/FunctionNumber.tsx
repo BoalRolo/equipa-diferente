@@ -132,7 +132,7 @@ export default function FunctionNumber() {
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
-            Qual o nº da função?
+            Digite o nome da função para encontrar o nº respectivo
           </h1>
 
           <Combobox value={selected} onChange={setSelected}>

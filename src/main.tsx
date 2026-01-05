@@ -3,9 +3,7 @@ import "./styles/index.css";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
-import JsonGenerator from "./pages/JsonGenerator";
 import NifGenerator from "./pages/NifGenerator";
-import DepreciatedCode from "./pages/DepreciatedCode";
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import FunctionNumber from "./pages/FunctionNumber";
@@ -23,22 +21,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             element={
               <ProtectedRoute>
                 <Home />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/json-generator"
-            element={
-              <ProtectedRoute>
-                <JsonGenerator />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/codigo-depreciado"
-            element={
-              <ProtectedRoute>
-                <DepreciatedCode />
               </ProtectedRoute>
             }
           />

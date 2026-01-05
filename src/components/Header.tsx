@@ -2,47 +2,15 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useDarkMode } from "../contexts/DarkModeContext";
 import { updateUserSettings } from "../services/firebase";
-import { Combobox } from "@headlessui/react";
 
 interface User {
   name: string;
 }
 
-interface Tool {
-  name: string;
-  description: string;
-  path: string;
-}
-
-const tools: Tool[] = [
-  {
-    name: "JSON Step Generator",
-    description: "Gerador de passos JSON",
-    path: "/json-generator",
-  },
-  {
-    name: "Gerador de Código Depreciado",
-    description: "Obter codigo depreciado",
-    path: "/codigo-depreciado",
-  },
-  {
-    name: "Gerador de NIF",
-    description: "Gerador de número de identificação fiscal",
-    path: "/nif-generator",
-  },
-  {
-    name: "Número da Função",
-    description: "Baseado no nome obter número da função",
-    path: "/function-number",
-  },
-];
-
 export default function Header() {
   const navigate = useNavigate();
   const [user, setUser] = React.useState<User | null>(null);
   const { isDarkMode, toggleDarkMode } = useDarkMode();
-  const [query, setQuery] = React.useState("");
-  const [selected, setSelected] = React.useState<Tool | null>(null);
 
   React.useEffect(() => {
     const userStr = localStorage.getItem("user");
@@ -72,21 +40,6 @@ export default function Header() {
     }
 
     navigate("/login");
-  };
-
-  const filteredTools =
-    query === ""
-      ? tools
-      : tools.filter(
-          (tool) =>
-            tool.name.toLowerCase().includes(query.toLowerCase()) ||
-            tool.description.toLowerCase().includes(query.toLowerCase())
-        );
-
-  const handleSelect = (tool: Tool) => {
-    setSelected(tool);
-    setQuery("");
-    navigate(tool.path);
   };
 
   return (
@@ -158,98 +111,6 @@ export default function Header() {
                 </svg>
               )}
             </button>
-            <div className="relative w-72">
-              <Combobox value={selected} onChange={handleSelect}>
-                <Combobox.Button className="relative w-full">
-                  <Combobox.Input
-                    className={`w-full px-4 py-2 border ${
-                      isDarkMode
-                        ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                        : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
-                    } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
-                    displayValue={(tool: Tool) => tool?.name || ""}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Selecione uma ferramenta..."
-                  />
-                  <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                    <svg
-                      className={`w-5 h-5 ${
-                        isDarkMode ? "text-gray-400" : "text-gray-400"
-                      }`}
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </span>
-                </Combobox.Button>
-                {filteredTools.length > 0 && (
-                  <Combobox.Options
-                    className={`absolute z-50 w-full mt-1 ${
-                      isDarkMode ? "bg-gray-700" : "bg-white"
-                    } rounded-md shadow-lg max-h-60 overflow-auto focus:outline-none text-base`}
-                  >
-                    {filteredTools.map((tool) => (
-                      <Combobox.Option
-                        key={tool.path}
-                        value={tool}
-                        className={({ active }) =>
-                          `cursor-pointer select-none relative py-2 pl-3 pr-9 ${
-                            active
-                              ? isDarkMode
-                                ? "bg-gray-600 text-white"
-                                : "bg-yellow-100 text-yellow-900"
-                              : isDarkMode
-                              ? "text-gray-200"
-                              : "text-gray-900"
-                          }`
-                        }
-                      >
-                        {({ active, selected }) => (
-                          <>
-                            <div className="flex flex-col">
-                              <span className={`block truncate font-medium`}>
-                                {tool.name}
-                              </span>
-                              <span
-                                className={`block truncate text-sm ${
-                                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                                }`}
-                              >
-                                {tool.description}
-                              </span>
-                            </div>
-                            {selected && (
-                              <span
-                                className={`absolute inset-y-0 right-0 flex items-center pr-4 ${
-                                  active ? "text-white" : "text-yellow-600"
-                                }`}
-                              >
-                                <svg
-                                  className="h-5 w-5"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </Combobox.Option>
-                    ))}
-                  </Combobox.Options>
-                )}
-              </Combobox>
-            </div>
             <button
               onClick={handleLogout}
               className="inline-flex items-center gap-2 bg-red-600 text-white rounded-lg px-4 py-2 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
