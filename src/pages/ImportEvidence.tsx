@@ -90,7 +90,7 @@ export default function ImportEvidence() {
   const clientSecret = import.meta.env.VITE_XRAY_CLIENT_SECRET || "";
 
   const extractTestRunNumber = (filename: string): string | null => {
-    const match = filename.match(/^UAAS-(\d+)(?:-.*)?\./);
+    const match = filename.match(/^(?:UAAS-)?(\d+)(?:-.*)?\./);
     return match ? match[1] : null;
   };
 
@@ -183,7 +183,7 @@ export default function ImportEvidence() {
           file,
           reason: "invalid_format",
           reasonText:
-            "Formato de nome incorreto. Deve seguir: UAAS-<número>.extensão ou UAAS-<número>-qualquer_coisa.extensão",
+            "Formato de nome incorreto. Deve seguir: UAAS-<número>.extensão, UAAS-<número>-qualquer_coisa.extensão, <número>.extensão ou <número>-qualquer_coisa.extensão",
         });
         invalid.push(file);
         return;
@@ -1284,15 +1284,138 @@ export default function ImportEvidence() {
                   );
                 })()}
 
-                <p
-                  className={`text-sm ${
-                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                  }`}
-                >
-                  Os ficheiros devem seguir o formato:
-                  UAAS-&lt;número&gt;.extensão ou
-                  UAAS-&lt;número&gt;-qualquer_coisa.extensão
-                </p>
+                <div className="relative inline-block group">
+                  <div className="flex items-center gap-2 text-yellow-500 cursor-help">
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                    <span className="text-sm font-medium">
+                      Formatos de ficheiros aceites
+                    </span>
+                  </div>
+                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50 w-80">
+                    <div
+                      className={`${
+                        isDarkMode
+                          ? "bg-gray-800 border-gray-700"
+                          : "bg-white border-gray-300"
+                      } border rounded-lg shadow-xl p-4`}
+                    >
+                      <div className="flex items-start gap-2 mb-3">
+                        <svg
+                          className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                            isDarkMode ? "text-yellow-400" : "text-yellow-600"
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                          />
+                        </svg>
+                        <div>
+                          <p
+                            className={`text-sm font-semibold mb-2 ${
+                              isDarkMode ? "text-white" : "text-gray-900"
+                            }`}
+                          >
+                            Formatos aceites:
+                          </p>
+                          <ul
+                            className={`text-xs space-y-1.5 ${
+                              isDarkMode ? "text-gray-300" : "text-gray-700"
+                            }`}
+                          >
+                            <li className="flex items-start gap-2">
+                              <span className="text-green-500 mt-1">✓</span>
+                              <span>
+                                <code
+                                  className={`px-1.5 py-0.5 rounded ${
+                                    isDarkMode
+                                      ? "bg-gray-700 text-yellow-400"
+                                      : "bg-gray-100 text-yellow-600"
+                                  }`}
+                                >
+                                  UAAS-123.png
+                                </code>
+                              </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="text-green-500 mt-1">✓</span>
+                              <span>
+                                <code
+                                  className={`px-1.5 py-0.5 rounded ${
+                                    isDarkMode
+                                      ? "bg-gray-700 text-yellow-400"
+                                      : "bg-gray-100 text-yellow-600"
+                                  }`}
+                                >
+                                  UAAS-123-screenshot.jpeg
+                                </code>
+                              </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="text-green-500 mt-1">✓</span>
+                              <span>
+                                <code
+                                  className={`px-1.5 py-0.5 rounded ${
+                                    isDarkMode
+                                      ? "bg-gray-700 text-yellow-400"
+                                      : "bg-gray-100 text-yellow-600"
+                                  }`}
+                                >
+                                  123.mp4
+                                </code>
+                              </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="text-green-500 mt-1">✓</span>
+                              <span>
+                                <code
+                                  className={`px-1.5 py-0.5 rounded ${
+                                    isDarkMode
+                                      ? "bg-gray-700 text-yellow-400"
+                                      : "bg-gray-100 text-yellow-600"
+                                  }`}
+                                >
+                                  123-evidence.mp3
+                                </code>
+                              </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="text-green-500 mt-1">✓</span>
+                              <span>
+                                <code
+                                  className={`px-1.5 py-0.5 rounded ${
+                                    isDarkMode
+                                      ? "bg-gray-700 text-yellow-400"
+                                      : "bg-gray-100 text-yellow-600"
+                                  }`}
+                                >
+                                  UAAS-123-document.pdf
+                                </code>
+                              </span>
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Test Runs List - Show grouped by Test Run */}
                 {(Object.keys(groupedFiles).length > 0 ||
@@ -1615,8 +1738,10 @@ export default function ImportEvidence() {
                 }`}
               >
                 ⚠ Nenhum ficheiro válido encontrado. Verifique se os nomes
-                seguem o formato UAAS-&lt;número&gt;.extensão ou
-                UAAS-&lt;número&gt;-qualquer_coisa.extensão
+                seguem o formato: UAAS-&lt;número&gt;.extensão,
+                UAAS-&lt;número&gt;-qualquer_coisa.extensão,
+                &lt;número&gt;.extensão ou
+                &lt;número&gt;-qualquer_coisa.extensão
               </div>
             )}
 

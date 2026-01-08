@@ -73,8 +73,6 @@ app.post("/api/xray/import", async (req, res) => {
         }
 
         // Log the import data being sent for debugging
-        console.log("Sending to Xray:", JSON.stringify(importData, null, 2));
-
         const response = await fetch(`${xrayBaseUrl}/api/v2/import/execution`, {
             method: "POST",
             headers: {
@@ -174,11 +172,9 @@ app.post("/api/xray/update-test-runs-graphql", async (req, res) => {
                             })),
                         };
                     }
-                    console.log("Available test run mutations with args:", JSON.stringify(mutationInfo, null, 2));
                 }
             }
         } catch (error) {
-            console.log("Introspection failed, using default mutations");
         }
 
         // Update test run status using GraphQL mutations
@@ -212,7 +208,6 @@ app.post("/api/xray/update-test-runs-graphql", async (req, res) => {
         );
 
         if (!idArg || !statusArg) {
-            console.warn(`updateTestRunStatus arguments not found. Available:`, statusMutationArgs.map(a => a.name));
             return res.json({
                 success: false,
                 errors: testRunUpdates.map(u => ({
@@ -257,8 +252,6 @@ app.post("/api/xray/update-test-runs-graphql", async (req, res) => {
                 variables,
             };
 
-            console.log(`Attempting to update ${testRunUpdates.length} test runs in a single GraphQL query`);
-
             const response = await fetch(`${xrayBaseUrl}/api/v2/graphql`, {
                 method: "POST",
                 headers: {
@@ -269,13 +262,10 @@ app.post("/api/xray/update-test-runs-graphql", async (req, res) => {
             });
 
             const responseText = await response.text();
-            console.log(`Combined GraphQL response:`, response.status, responseText.substring(0, 500));
-
             if (response.ok) {
                 const data = JSON.parse(responseText);
 
                 if (data.errors) {
-                    console.warn(`GraphQL returned errors:`, data.errors);
                     // If there are errors, mark all as failed
                     testRunUpdates.forEach((update) => {
                         errors.push({
@@ -294,7 +284,6 @@ app.post("/api/xray/update-test-runs-graphql", async (req, res) => {
                                 testRunId: update.testRunId,
                                 success: true,
                             });
-                            console.log(`✓ Test run ${update.testRunId} updated successfully`);
                         } else {
                             errors.push({
                                 testRunId: update.testRunId,
@@ -305,8 +294,6 @@ app.post("/api/xray/update-test-runs-graphql", async (req, res) => {
                 }
             } else {
                 // If single query fails, fallback to individual requests
-                console.warn(`Single GraphQL query failed (HTTP ${response.status}), falling back to individual requests`);
-
                 // Fallback: process individually
                 for (const update of testRunUpdates) {
                     try {
@@ -382,8 +369,6 @@ app.post("/api/xray/update-test-runs-graphql", async (req, res) => {
                 failed: errors.length,
             },
         };
-
-        console.log("GraphQL timer update summary:", JSON.stringify(response, null, 2));
 
         res.json(response);
     } catch (error) {
