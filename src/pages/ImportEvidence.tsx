@@ -737,18 +737,53 @@ export default function ImportEvidence() {
             tests: batchTests,
           };
 
+          // Calculate approximate payload size (base64 is ~33% larger)
+          const payloadSize = JSON.stringify({
+            xrayBaseUrl,
+            token,
+            importData,
+          }).length;
+          const payloadSizeMB = payloadSize / (1024 * 1024);
+
+          // Warn if payload is getting large (Vercel limit is ~4.5MB for Pro)
+          if (payloadSizeMB > 3) {
+            console.warn(`Payload size: ${payloadSizeMB.toFixed(2)}MB for batch ${batchIdx + 1}`);
+          }
+
           await importExecution(xrayBaseUrl, token, importData);
 
           batch.forEach((entry) => {
             batchSuccessful.push(entry);
           });
         } catch (error: any) {
+          const errorMessage = error.message || "Falha ao enviar via REST API";
+          
+          // If it's a 413 or payload too large error, mark all in batch as failed
+          // and provide clear error message
           batch.forEach(([testRunNumber]) => {
             failed.push({
               testRun: `UAAS-${testRunNumber}`,
-              error: error.message || "Falha ao enviar via REST API",
+              error: errorMessage.includes("413") || errorMessage.includes("muito grande") || errorMessage.includes("Payload muito grande")
+                ? `Payload muito grande: ${errorMessage}`
+                : errorMessage,
             });
           });
+          
+          // If it's a payload size error, stop processing remaining batches
+          // to avoid wasting time on requests that will also fail
+          if (errorMessage.includes("413") || errorMessage.includes("muito grande") || errorMessage.includes("Payload muito grande")) {
+            // Mark remaining batches as failed
+            for (let remainingIdx = batchIdx + 1; remainingIdx < batches.length; remainingIdx++) {
+              batches[remainingIdx].forEach(([testRunNumber]) => {
+                failed.push({
+                  testRun: `UAAS-${testRunNumber}`,
+                  error: "Não processado: Batch anterior falhou devido a payload muito grande",
+                });
+              });
+            }
+            break; // Exit the batch loop
+          }
+          
           continue;
         }
 
@@ -854,23 +889,49 @@ export default function ImportEvidence() {
         );
       }
 
-      const allSuccessful = failed.length === 0;
+      // Clear intervals before setting final progress
+      if (messageInterval) clearInterval(messageInterval);
+      if (animationInterval) clearInterval(animationInterval);
+
+      const allSuccessful = failed.length === 0 && completed.length > 0;
+      
+      // Show detailed error message if all failed or if there were critical errors
+      const hasPayloadErrors = failed.some(f => 
+        f.error.includes("413") || 
+        f.error.includes("muito grande") || 
+        f.error.includes("Payload muito grande")
+      );
+      
+      let resultMessage = "";
+      if (allSuccessful) {
+        resultMessage = `Importação realizada com sucesso! ${completed.length} test run(s) atualizado(s).`;
+      } else if (hasPayloadErrors && completed.length === 0) {
+        resultMessage = `Falha na importação: Payload muito grande. Os ficheiros são demasiado grandes para enviar. Tente fazer upload de menos ficheiros por vez ou use ficheiros menores.`;
+      } else if (failed.length === totalTestRuns) {
+        resultMessage = `Falha na importação: Nenhum teste foi atualizado. Verifique os erros abaixo.`;
+      } else {
+        resultMessage = `Importação parcial: ${completed.length} sucesso, ${failed.length} falha(s).`;
+      }
+
       setProgress({
-        current: totalTestRuns,
+        current: completed.length,
         total: totalTestRuns,
-        message: `${totalTestRuns} testes atualizados`,
+        message: allSuccessful
+          ? `${totalTestRuns} testes atualizados`
+          : failed.length === totalTestRuns
+          ? "Falha na importação"
+          : `${completed.length} de ${totalTestRuns} testes atualizados`,
         stage: "complete",
         completed: [...completed],
         inProgress: [],
         failed: [...failed],
-        animatedProgress: 100,
+        animatedProgress: allSuccessful ? 100 : (completed.length / totalTestRuns) * 100,
         dynamicMessage: "",
       });
+      
       setResult({
         success: allSuccessful,
-        message: allSuccessful
-          ? `Importação realizada com sucesso! ${completed.length} test run(s) atualizado(s).`
-          : `Importação parcial: ${completed.length} sucesso, ${failed.length} falha(s).`,
+        message: resultMessage,
         details: {
           completed: completed.length,
           failed: failed.length,
