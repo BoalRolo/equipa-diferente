@@ -9,17 +9,58 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 // Configure CORS to allow requests from the frontend
-app.use(cors({
-    origin: [
-        "https://boalrolo.github.io",
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://localhost:5174"
-    ],
+const allowedOrigins = [
+    "https://boalrolo.github.io",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:5174"
+];
+
+// CORS middleware - must be before other middleware
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    
+    // Check if origin is in allowed list
+    if (origin && allowedOrigins.includes(origin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Access-Control-Allow-Credentials", "true");
+    } else if (!origin) {
+        // For requests with no origin, don't set credentials header
+        res.setHeader("Access-Control-Allow-Origin", "*");
+    } else {
+        // For other origins, allow but without credentials
+        res.setHeader("Access-Control-Allow-Origin", origin);
+    }
+    
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Max-Age", "86400"); // 24 hours
+    
+    // Handle preflight OPTIONS requests
+    if (req.method === "OPTIONS") {
+        return res.status(204).end();
+    }
+    
+    next();
+});
+
+// Also use cors middleware as backup
+const corsOptions = {
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(null, true); // Allow all for now
+        }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
-}));
+    allowedHeaders: ["Content-Type", "Authorization"],
+    preflightContinue: false,
+    optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
 // Increase payload size limit to 100MB (for large base64 encoded files)
 // Note: Vercel has limits (10MB for Hobby, 4.5MB for Pro), so we may need to process in smaller batches
 app.use(express.json({ limit: "100mb" }));
@@ -655,7 +696,13 @@ app.get("/health", (req, res) => {
     res.json({ status: "ok" });
 });
 
-app.listen(PORT, () => {
-    console.log(`Backend server running on http://localhost:${PORT}`);
-});
+// Export for Vercel serverless functions
+export default app;
+
+// Only listen on port when running locally
+if (process.env.NODE_ENV !== "production" || process.env.VERCEL !== "1") {
+    app.listen(PORT, () => {
+        console.log(`Backend server running on http://localhost:${PORT}`);
+    });
+}
 
