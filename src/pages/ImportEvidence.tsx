@@ -554,6 +554,10 @@ export default function ImportEvidence() {
     setIsProcessing(true);
     setResult(null);
 
+    // Declare intervals outside try block so they're accessible in catch
+    let messageInterval: NodeJS.Timeout | null = null;
+    let animationInterval: NodeJS.Timeout | null = null;
+
     try {
       const token = await authenticateXray(xrayBaseUrl, clientId, clientSecret);
 
@@ -654,9 +658,6 @@ export default function ImportEvidence() {
         animatedProgress: 0,
         dynamicMessage: dynamicMessages[0],
       });
-
-      let messageInterval: NodeJS.Timeout | null = null;
-      let animationInterval: NodeJS.Timeout | null = null;
 
       messageInterval = setInterval(() => {
         setProgress((prev) => {
@@ -891,20 +892,33 @@ export default function ImportEvidence() {
       // Clear progress modal on critical errors
       if (messageInterval) clearInterval(messageInterval);
       if (animationInterval) clearInterval(animationInterval);
-      
+
       let errorMessage = error.message || "Erro ao importar evidências";
-      
+
       // Provide more specific error messages
       if (errorMessage.includes("CORS")) {
-        errorMessage = "Erro CORS: O servidor não permite requisições do frontend. Contacte o administrador do sistema.";
-      } else if (errorMessage.includes("413") || errorMessage.includes("muito grande")) {
-        errorMessage = "Payload muito grande: Os ficheiros são demasiado grandes para enviar de uma vez. Tente fazer upload de menos ficheiros por vez ou use ficheiros menores.";
-      } else if (errorMessage.includes("504") || errorMessage.includes("Timeout")) {
-        errorMessage = "Timeout do servidor: O processamento demorou demasiado tempo. Tente fazer upload de menos ficheiros por vez.";
-      } else if (errorMessage.includes("Failed to fetch") || errorMessage.includes("rede")) {
-        errorMessage = "Erro de rede: Não foi possível conectar ao servidor. Verifique a sua ligação à internet e tente novamente.";
+        errorMessage =
+          "Erro CORS: O servidor não permite requisições do frontend. Contacte o administrador do sistema.";
+      } else if (
+        errorMessage.includes("413") ||
+        errorMessage.includes("muito grande")
+      ) {
+        errorMessage =
+          "Payload muito grande: Os ficheiros são demasiado grandes para enviar de uma vez. Tente fazer upload de menos ficheiros por vez ou use ficheiros menores.";
+      } else if (
+        errorMessage.includes("504") ||
+        errorMessage.includes("Timeout")
+      ) {
+        errorMessage =
+          "Timeout do servidor: O processamento demorou demasiado tempo. Tente fazer upload de menos ficheiros por vez.";
+      } else if (
+        errorMessage.includes("Failed to fetch") ||
+        errorMessage.includes("rede")
+      ) {
+        errorMessage =
+          "Erro de rede: Não foi possível conectar ao servidor. Verifique a sua ligação à internet e tente novamente.";
       }
-      
+
       setProgress(null);
       setResult({
         success: false,
