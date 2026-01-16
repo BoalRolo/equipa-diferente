@@ -13,7 +13,7 @@ import { DarkModeProvider } from "./contexts/DarkModeContext";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <DarkModeProvider>
-      <BrowserRouter basename="/equipa-diferente">
+      <BrowserRouter basename="/equipa-unifo">
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route

@@ -28,7 +28,8 @@ interface IgnoredFile {
     | "invalid_format"
     | "test_not_found"
     | "test_not_executing"
-    | "system_file";
+    | "system_file"
+    | "file_too_large";
   reasonText: string;
   testRunNumber?: string;
 }
@@ -94,12 +95,108 @@ export default function ImportEvidence() {
     return match ? match[1] : null;
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
+  // File size limits (in bytes)
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB - files larger than this will be rejected
+  const COMPRESS_THRESHOLD = 3 * 1024 * 1024; // 3MB - files larger than this will be compressed
+
+  /**
+   * Compresses an image file to reduce its size
+   * @param file - The image file to compress
+   * @param maxWidth - Maximum width (default: 1920)
+   * @param maxHeight - Maximum height (default: 1080)
+   * @param quality - JPEG quality 0.0-1.0 (default: 0.85)
+   * @returns Base64 string of compressed image
+   */
+  const compressImage = (
+    file: File,
+    maxWidth: number = 1920,
+    maxHeight: number = 1080,
+    quality: number = 0.85
+  ): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+
+          // Calculate new dimensions while maintaining aspect ratio
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = width * ratio;
+            height = height * ratio;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            reject(new Error("Could not get canvas context"));
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Convert to JPEG for better compression (PNG is lossless and larger)
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error("Failed to compress image"));
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => {
+                const base64 = (reader.result as string).split(",")[1];
+                resolve(base64);
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            },
+            "image/jpeg",
+            quality
+          );
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  /**
+   * Converts a file to base64, with automatic compression for large image files
+   * @param file - The file to convert
+   * @returns Base64 string and whether compression was applied
+   */
+  const fileToBase64 = async (
+    file: File
+  ): Promise<{ base64: string; wasCompressed: boolean }> => {
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    const isImage = ["png", "jpg", "jpeg", "gif", "webp"].includes(
+      extension || ""
+    );
+
+    // If it's an image and larger than threshold, compress it
+    if (isImage && file.size > COMPRESS_THRESHOLD) {
+      try {
+        const compressedBase64 = await compressImage(file);
+        return { base64: compressedBase64, wasCompressed: true };
+      } catch (error) {
+        // If compression fails, fall back to original
+        console.warn("Image compression failed, using original:", error);
+      }
+    }
+
+    // For non-images or small images, use original method
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
         const base64 = (reader.result as string).split(",")[1];
-        resolve(base64);
+        resolve({ base64, wasCompressed: false });
       };
       reader.onerror = reject;
       reader.readAsDataURL(file);
@@ -173,6 +270,17 @@ export default function ImportEvidence() {
       );
 
       if (isSystemFile) {
+        return;
+      }
+
+      // Check file size - reject files that are too large
+      if (file.size > MAX_FILE_SIZE) {
+        const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+        ignored.push({
+          file,
+          reason: "file_too_large",
+          reasonText: `Ficheiro demasiado grande (${sizeInMB}MB). O tamanho máximo permitido é 10MB.`,
+        });
         return;
       }
 
@@ -475,11 +583,15 @@ export default function ImportEvidence() {
         const evidences: XrayEvidence[] = [];
 
         for (const fileWithTestRun of fileGroup) {
-          const base64Data = await fileToBase64(fileWithTestRun.file);
+          const { base64, wasCompressed } = await fileToBase64(
+            fileWithTestRun.file
+          );
           evidences.push({
-            data: base64Data,
+            data: base64,
             filename: fileWithTestRun.file.name,
-            contentType: getContentType(fileWithTestRun.file.name),
+            contentType: wasCompressed
+              ? "image/jpeg"
+              : getContentType(fileWithTestRun.file.name),
           });
         }
 
@@ -511,6 +623,8 @@ export default function ImportEvidence() {
       const completed: string[] = [];
       const failed: Array<{ testRun: string; error: string }> = [];
 
+      // Batch size can be larger now that we compress images automatically
+      // Images larger than 3MB are automatically compressed before upload
       const BATCH_SIZE = 10;
       const testRunEntries = Array.from(testRunDataMap.entries());
       const batches: Array<typeof testRunEntries> = [];
@@ -541,10 +655,13 @@ export default function ImportEvidence() {
         dynamicMessage: dynamicMessages[0],
       });
 
-      const messageInterval = setInterval(() => {
+      let messageInterval: NodeJS.Timeout | null = null;
+      let animationInterval: NodeJS.Timeout | null = null;
+
+      messageInterval = setInterval(() => {
         setProgress((prev) => {
           if (!prev || prev.stage === "complete") {
-            clearInterval(messageInterval);
+            if (messageInterval) clearInterval(messageInterval);
             return prev;
           }
           messageIndex = (messageIndex + 1) % dynamicMessages.length;
@@ -556,10 +673,10 @@ export default function ImportEvidence() {
       }, 4500);
 
       let animatedValue = 0;
-      const animationInterval = setInterval(() => {
+      animationInterval = setInterval(() => {
         setProgress((prev) => {
           if (!prev || prev.stage === "complete") {
-            clearInterval(animationInterval);
+            if (animationInterval) clearInterval(animationInterval);
             return prev;
           }
           const realProgress = (prev.current / prev.total) * 100;
@@ -771,9 +888,27 @@ export default function ImportEvidence() {
         folderInputRef.current.value = "";
       }
     } catch (error: any) {
+      // Clear progress modal on critical errors
+      if (messageInterval) clearInterval(messageInterval);
+      if (animationInterval) clearInterval(animationInterval);
+      
+      let errorMessage = error.message || "Erro ao importar evidências";
+      
+      // Provide more specific error messages
+      if (errorMessage.includes("CORS")) {
+        errorMessage = "Erro CORS: O servidor não permite requisições do frontend. Contacte o administrador do sistema.";
+      } else if (errorMessage.includes("413") || errorMessage.includes("muito grande")) {
+        errorMessage = "Payload muito grande: Os ficheiros são demasiado grandes para enviar de uma vez. Tente fazer upload de menos ficheiros por vez ou use ficheiros menores.";
+      } else if (errorMessage.includes("504") || errorMessage.includes("Timeout")) {
+        errorMessage = "Timeout do servidor: O processamento demorou demasiado tempo. Tente fazer upload de menos ficheiros por vez.";
+      } else if (errorMessage.includes("Failed to fetch") || errorMessage.includes("rede")) {
+        errorMessage = "Erro de rede: Não foi possível conectar ao servidor. Verifique a sua ligação à internet e tente novamente.";
+      }
+      
+      setProgress(null);
       setResult({
         success: false,
-        message: error.message || "Erro ao importar evidências",
+        message: errorMessage,
         details: error,
       });
     } finally {
@@ -1556,6 +1691,8 @@ export default function ImportEvidence() {
                                         return "🔍";
                                       case "test_not_executing":
                                         return "⏸️";
+                                      case "file_too_large":
+                                        return "📦";
                                       default:
                                         return "⚠️";
                                     }

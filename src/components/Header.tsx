@@ -58,11 +58,11 @@ export default function Header() {
               } cursor-pointer hover:opacity-80 transition-opacity`}
             >
               <img
-                src="/equipa-diferente/octo.svg"
+                src="/equipa-unifo/octo.svg"
                 alt="Octopus Logo"
                 className="w-8 h-8 mr-2"
               />
-              Equipa Diferente
+              Equipa UNIFO
             </h1>
             <span
               className={`text-sm ${

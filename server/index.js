@@ -8,10 +8,22 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors());
-// Increase payload size limit to 50MB (for large base64 encoded files)
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+// Configure CORS to allow requests from the frontend
+app.use(cors({
+    origin: [
+        "https://boalrolo.github.io",
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:5174"
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+}));
+// Increase payload size limit to 100MB (for large base64 encoded files)
+// Note: Vercel has limits (10MB for Hobby, 4.5MB for Pro), so we may need to process in smaller batches
+app.use(express.json({ limit: "100mb" }));
+app.use(express.urlencoded({ limit: "100mb", extended: true }));
 
 // Endpoint para autenticação
 app.post("/api/xray/authenticate", async (req, res) => {

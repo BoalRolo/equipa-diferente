@@ -75,7 +75,7 @@ export default function Login() {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <img
-            src="/equipa-diferente/octo.svg"
+            src="/equipa-unifo/octo.svg"
             alt="Octopus Logo"
             className="w-20 h-20 animate-bounce"
           />
@@ -85,7 +85,7 @@ export default function Login() {
             isDarkMode ? "text-white" : "text-gray-900"
           }`}
         >
-          Equipa Diferente
+          Equipa UNIFO
         </h2>
         <p
           className={`mt-2 text-center text-lg ${

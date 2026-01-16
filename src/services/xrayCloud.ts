@@ -90,27 +90,56 @@ export async function importExecution(
     import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
   const url = `${backendUrl}/api/xray/import`;
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      xrayBaseUrl,
-      token,
-      importData,
-    }),
-  });
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        xrayBaseUrl,
+        token,
+        importData,
+      }),
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(
-      errorData.error ||
-        `Import failed: ${response.status} ${response.statusText}`
-    );
+    if (!response.ok) {
+      let errorMessage = `Import failed: ${response.status} ${response.statusText}`;
+      
+      if (response.status === 413) {
+        errorMessage = "Payload muito grande. Tente fazer upload de menos ficheiros por vez ou use ficheiros menores.";
+      } else if (response.status === 504) {
+        errorMessage = "Timeout do servidor. O processamento demorou demasiado tempo. Tente fazer upload de menos ficheiros por vez.";
+      } else {
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage = errorText.substring(0, 200);
+          }
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    // Handle network errors (CORS, timeout, etc.)
+    if (error.name === "TypeError" && error.message.includes("fetch")) {
+      if (error.message.includes("CORS")) {
+        throw new Error("Erro CORS: O servidor não permite requisições do frontend. Contacte o administrador.");
+      } else if (error.message.includes("Failed to fetch")) {
+        throw new Error("Erro de rede: Não foi possível conectar ao servidor. Verifique a sua ligação à internet.");
+      } else {
+        throw new Error(`Erro de rede: ${error.message}`);
+      }
+    }
+    // Re-throw other errors as-is
+    throw error;
   }
-
-  return await response.json();
 }
 
 /**
@@ -129,27 +158,56 @@ export async function updateTestRunsViaGraphQL(
     import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
   const url = `${backendUrl}/api/xray/update-test-runs-graphql`;
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      xrayBaseUrl,
-      token,
-      testRunUpdates,
-    }),
-  });
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        xrayBaseUrl,
+        token,
+        testRunUpdates,
+      }),
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(
-      errorData.error ||
-        `Failed to update test runs: ${response.status} ${response.statusText}`
-    );
+    if (!response.ok) {
+      let errorMessage = `Failed to update test runs: ${response.status} ${response.statusText}`;
+      
+      if (response.status === 413) {
+        errorMessage = "Payload muito grande. Tente fazer upload de menos ficheiros por vez.";
+      } else if (response.status === 504) {
+        errorMessage = "Timeout do servidor. O processamento demorou demasiado tempo.";
+      } else {
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage = errorText.substring(0, 200);
+          }
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    // Handle network errors (CORS, timeout, etc.)
+    if (error.name === "TypeError" && error.message.includes("fetch")) {
+      if (error.message.includes("CORS")) {
+        throw new Error("Erro CORS: O servidor não permite requisições do frontend. Contacte o administrador.");
+      } else if (error.message.includes("Failed to fetch")) {
+        throw new Error("Erro de rede: Não foi possível conectar ao servidor. Verifique a sua ligação à internet.");
+      } else {
+        throw new Error(`Erro de rede: ${error.message}`);
+      }
+    }
+    // Re-throw other errors as-is
+    throw error;
   }
-
-  return await response.json();
 }
 
 export interface TestExecutionValidation {
